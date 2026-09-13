@@ -23,6 +23,9 @@ import sys
 import time
 import traceback
 
+from rich.console import Console
+from rich.panel import Panel
+
 from ssforensics import netlock
 
 # Engage the network lock before anything else is imported or run.
@@ -35,13 +38,28 @@ from ssforensics.context import Config, ScanContext  # noqa: E402
 from ssforensics.util import paths as pathutil  # noqa: E402
 from ssforensics.util import winapi  # noqa: E402
 
-BANNER = r"""
-  ASTRO SSTOOL {version}    read-only screenshare scanner
-  ----------------------------------------------------------------------
-  This tool INSPECTS and REPORTS. It does not modify the system, does not
-  download anything, and has no network access at all.
-  It cannot prove innocence. Read the disclaimer in the report.
-"""
+console = Console()
+
+BANNER_TEXT = """[bold #c084fc]    ___         __             _____ _____ _____ _____ _____ 
+   /   |  _____/ /__________  / ___// ___// ___// ___// ___/ 
+  / /| | / ___/ __/ ___/ __ \ \__ \ \__ \ \__ \ \__ \ \__ \  
+ / ___ |(__  ) /_j /  / /_/ /___/ /___/ /___/ /___/ /___/ /  
+/_/  |_/____/\__/_/   \____//____//____//____//____//____/ [/]
+[bold #a855f7]                   --- FORENSIC SUITE v{version} ---                   [/]"""
+
+
+def print_astro_banner(version: str):
+    panel = Panel(
+        BANNER_TEXT.format(version=version),
+        border_style="#9333ea",
+        padding=(1, 2),
+        title="[bold #e0e0e0]AstroSSTool Engine[/bold #e0e0e0]",
+        subtitle="[italic #9ca3af]Read-Only Offline Mode[/italic #9ca3af]",
+        style="on #161618"
+    )
+    console.print(panel)
+    console.print("[dim #9ca3af]  This tool INSPECTS and REPORTS. It does not modify the system, does not[/dim #9ca3af]")
+    console.print("[dim #9ca3af]  download anything, and has no network access at all. Cannot prove innocence.[/dim #9ca3af]\n")
 
 
 def parse_args(argv=None):
@@ -113,12 +131,10 @@ def selftest() -> int:
     from ssforensics import collect
     from ssforensics.util import bam, evt, prefetch, raw_ntfs, reg, usn
 
-    print(BANNER.format(version=report_mod.TOOL_VERSION))
+    print_astro_banner(report_mod.TOOL_VERSION)
     admin = winapi.is_admin()
-    print(f"  elevated: {'YES' if admin else 'NO - most checks will be blind'}")
-    print(f"  boot time: {winapi.boot_time()}  "
-          f"(up {winapi.uptime_seconds() / 3600:.1f} h)")
-    print()
+    console.print(f"  [bold]elevated:[/bold] {'[green]YES[/green]' if admin else '[red]NO - most checks will be blind[/red]'}")
+    console.print(f"  [bold]boot time:[/bold] {winapi.boot_time()}  (up {winapi.uptime_seconds() / 3600:.1f} h)\n")
     rows = []
 
     def probe(label, fn):
@@ -137,8 +153,7 @@ def selftest() -> int:
           lambda: f"{len(collect._amcache_bytes()[0])} bytes via "
                   f"{collect._amcache_bytes()[1]}")
     probe("USN journal", lambda: f"journal {usn.query('C').journal_id}")
-    probe("raw NTFS volume", lambda: f"{raw_ntfs.NtfsVolume('C').record_count} "
-                                     "MFT records")
+    probe("raw NTFS volume", lambda: f"{raw_ntfs.NtfsVolume('C').record_count} MFT records")
     probe("System event log", lambda: f"{len(evt.events('System', limit=3))} events")
     probe("Security event log", lambda: f"{len(evt.events('Security', limit=3))} events")
     probe("PowerShell log",
@@ -150,18 +165,17 @@ def selftest() -> int:
 
     width = max(len(r[0]) for r in rows)
     for label, state, detail in rows:
-        print(f"  {label.ljust(width)}  {state:<4}  {detail}")
-    print()
+        state_str = f"[green]{state}[/green]" if state == "OK" else f"[red]{state}[/red]"
+        console.print(f"  {label.ljust(width)}  {state_str}  {detail}")
+    console.print()
+    
     failures = [r for r in rows if r[1] == "FAIL"]
     if failures and not admin:
-        print("  Re-run from an elevated prompt: most of these failures are "
-              "just missing administrator rights.")
+        console.print("  [yellow]Re-run from an elevated prompt: most of these failures are just missing administrator rights.[/yellow]")
     elif failures:
-        print("  Running elevated and still failing: each failure above is a "
-              "source of evidence this machine will not hand over. That is "
-              "itself reportable.")
+        console.print("  [yellow]Running elevated and still failing: each failure above is a source of evidence this machine will not hand over.[/yellow]")
     else:
-        print("  All evidence sources readable.")
+        console.print("  [green]All evidence sources readable.[/green]")
     return 0
 
 
@@ -188,27 +202,23 @@ def run_scan(args) -> int:
     try:
         sigs = signature_mod.load(cfg.signatures_path)
     except (OSError, ValueError) as exc:
-        print(f"ERROR: could not load signatures.json: {exc}", file=sys.stderr)
+        console.print(f"[bold red]ERROR:[/bold red] could not load signatures.json: {exc}", file=sys.stderr)
         return 3
     if sigs.load_errors:
         for err in sigs.load_errors:
-            print(f"  signature warning: {err}", file=sys.stderr)
+            console.print(f"  [yellow]signature warning: {err}[/yellow]", file=sys.stderr)
 
-    print(BANNER.format(version=report_mod.TOOL_VERSION))
-    print(f"  signatures : {sigs.total()} across {len(sigs.counts())} categories "
-          f"({sigs.source})")
-    print(f"  output     : {cfg.out_dir}")
+    print_astro_banner(report_mod.TOOL_VERSION)
+    console.print(f"  [bold]signatures[/bold] : {sigs.total()} across {len(sigs.counts())} categories ({sigs.source})")
+    console.print(f"  [bold]output[/bold]     : {cfg.out_dir}")
     if not winapi.is_admin():
-        print()
-        print("  *** NOT RUNNING ELEVATED ***")
-        print("  Prefetch, BAM, AmCache, the USN journal, the MFT and other")
-        print("  processes' memory are all unreadable without administrator")
-        print("  rights. The report will mark those modules as blocked.")
-    print()
+        console.print()
+        console.print("  [bold red]*** NOT RUNNING ELEVATED ***[/bold red]")
+        console.print("  [yellow]Prefetch, BAM, AmCache, the USN journal, the MFT and other[/yellow]")
+        console.print("  [yellow]processes' memory are all unreadable without administrator[/yellow]")
+        console.print("  [yellow]rights. The report will mark those modules as blocked.[/yellow]")
+    console.print()
 
-    # SeBackupPrivilege and SeDebugPrivilege are already held by an admin
-    # token; enabling them is what lets the read-only hive and volume reads
-    # through. Nothing is granted that the account did not already have.
     for priv in ("SeBackupPrivilege", "SeDebugPrivilege", "SeSecurityPrivilege"):
         winapi.enable_privilege(priv)
 
@@ -220,7 +230,7 @@ def run_scan(args) -> int:
     for mod in selected:
         status = ctx.status(mod.NAME)
         started = time.perf_counter()
-        print(f"  [{mod.NAME}] {mod.TITLE} ...", flush=True)
+        console.print(f"  [cyan][{mod.NAME}][/cyan] {mod.TITLE} ...", flush=True)
         try:
             mod.run(ctx)
             if status.state == "pending":
@@ -228,7 +238,7 @@ def run_scan(args) -> int:
         except KeyboardInterrupt:
             status.state = "failed"
             status.reason = "interrupted by the operator"
-            print("  interrupted", flush=True)
+            console.print("  [red]interrupted[/red]", flush=True)
             break
         except Exception as exc:  # noqa: BLE001
             ctx.fail(mod.NAME, f"{type(exc).__name__}: {exc}", exc)
@@ -236,10 +246,8 @@ def run_scan(args) -> int:
                 traceback.print_exc()
         finally:
             status.duration = time.perf_counter() - started
-            print(f"      {status.state}, {status.findings} finding(s), "
-                  f"{status.duration:.1f}s", flush=True)
+            console.print(f"      [green]{status.state}[/green], {status.findings} finding(s), {status.duration:.1f}s", flush=True)
 
-    # A module that could not run is itself reportable.
     for name in ctx.module_order:
         status = ctx.modules[name]
         if status.state in ("failed", "degraded"):
@@ -268,18 +276,18 @@ def run_scan(args) -> int:
 def main(argv=None) -> int:
     args = parse_args(argv)
     if sys.platform != "win32":
-        print("This tool only runs on Windows.", file=sys.stderr)
+        console.print("[red]This tool only runs on Windows.[/red]", file=sys.stderr)
         return 3
     if args.list_modules:
         for name, title in module_registry.names():
-            print(f"  {name:<20} {title}")
+            console.print(f"  [cyan]{name:<20}[/cyan] {title}")
         return 0
     if args.selftest:
         return selftest()
     try:
         return run_scan(args)
     except KeyboardInterrupt:
-        print("\ninterrupted", file=sys.stderr)
+        console.print("\n[red]interrupted[/red]", file=sys.stderr)
         return 3
 
 
