@@ -1,5 +1,5 @@
 # ==============================================================================
-# AstroSS - Native Aura-Styled Forensic Suite
+# AstroSSTool - Forensic Moderation Suite
 # ==============================================================================
 
 If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -18,7 +18,7 @@ if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir 
 <Window 
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="AstroSS" Height="620" Width="920" 
+    Title="AstroSSTool" Height="620" Width="920" 
     WindowStartupLocation="CenterScreen" Background="#09080b" Foreground="White" 
     WindowStyle="None" AllowsTransparency="True" ResizeMode="CanMinimize">
     
@@ -87,7 +87,7 @@ if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir 
             <!-- CUSTOM TITLEBAR -->
             <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="#0f0d14" Name="TitleBarGrid">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                    <TextBlock Text="✦  ASTROSS // MODERATION SUITE" FontSize="11" FontWeight="Bold" Foreground="#a855f7"/>
+                    <TextBlock Text="✦  ASTROSSTOOL // FORENSIC SUITE" FontSize="11" FontWeight="Bold" Foreground="#a855f7"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,8,0">
                     <Button x:Name="BtnMinimize" Content="—" Width="30" Height="22" Background="Transparent" Foreground="#888" BorderThickness="0" Cursor="Hand"/>
@@ -108,7 +108,7 @@ if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir 
                         <Border Background="#121017" BorderBrush="#1f1b29" BorderThickness="1" CornerRadius="6" Padding="10">
                             <StackPanel>
                                 <TextBlock Text="STATUS: ACTIVE" FontSize="9" FontWeight="Bold" Foreground="#4ade80"/>
-                                <TextBlock Text="v2.5 Professional" FontSize="9" Foreground="#666" Margin="0,2,0,0"/>
+                                <TextBlock Text="AstroSSTool v1.0" FontSize="9" Foreground="#666" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -199,5 +199,5 @@ $BtnNetLock.Add_Click({
     }
 })
 
-Log "AstroSS initialized successfully. Ready."
+Log "AstroSSTool initialized successfully. Ready."
 [void]$window.ShowDialog()
