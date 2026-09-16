@@ -1,5 +1,5 @@
 # ==============================================================================
-# AstroSSTool - Native WebView2 Modern UI Edition
+# AstroSSTool - Native WPF Dark Theme Edition
 # ==============================================================================
 
 # Self-Elevation Check
@@ -9,64 +9,202 @@ If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 Add-Type -AssemblyName PresentationFramework
-Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
 
-# Create local HTML workspace
-$WorkDir = "$env:USERPROFILE\Downloads\AstroSSTool"
-if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path$WorkDir | Out-Null }
+$ToolsDir = "$env:USERPROFILE\Downloads\AstroSSTool"
+if (!(Test-Path $ToolsDir)) { New-Item -ItemType Directory -Force -Path$ToolsDir | Out-Null }
 
-$HtmlFile = "$WorkDir\index.html"
+[xml]$xaml = @"
+<Window 
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="AstroSSTool" Height="650" Width="980" WindowStartupLocation="CenterScreen"
+    Background="#0b090e" Foreground="White" ResizeMode="CanMinimize">
+    
+    <Window.Resources>
+        <Style TargetType="Button" x:Key="CardButtonStyle">
+            <Setter Property="Background" Value="#17121f"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#2b203c"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="12">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#21192e"/>
+                    <Setter Property="BorderBrush" Value="#b464ff"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
 
-# Write the exact modern UI design matching your video preview
-$HtmlContent = @"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>AstroSSTool</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: #0b090e; color: #fff; overflow: hidden; height: 100vh; display: flex; }
-        
-        /* Starry background animation */
-        .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: radial-gradient(ellipse at bottom, #1b1328 0%, #0b090e 100%); z-index: -1; }
-        .star { position: absolute; background: #b464ff; border-radius: 50%; animation: twinkle 3s infinite ease-in-out; opacity: 0.5; }
-        @keyframes twinkle { 0%, 100% { opacity: 0.2; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
+        <Style TargetType="Button" x:Key="SidebarButtonStyle">
+            <Setter Property="Background" Value="#17121f"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#2b203c"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#261b36"/>
+                    <Setter Property="BorderBrush" Value="#b464ff"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
 
-        /* Sidebar */
-        .sidebar { width: 230px; background: rgba(18, 14, 24, 0.85); border-right: 1px solid #261E34; display: flex; flex-direction: column; padding: 20px; justify-content: space-between; }
-        .logo-area { display: flex; align-items: center; gap: 10px; font-weight: bold; color: #b464ff; font-size: 16px; margin-bottom: 25px; }
-        
-        .action-group label { font-size: 10px; color: #6b7280; font-weight: bold; letter-spacing: 1px; display: block; margin-bottom: 8px; }
-        .btn { width: 100%; background: #1c1626; border: 1px solid #2e2440; color: #fff; padding: 10px; text-align: left; border-radius: 6px; cursor: pointer; margin-bottom: 8px; font-size: 12px; transition: 0.2s; }
-        .btn:hover { background: #261e34; border-color: #b464ff; }
-        .btn-danger { color: #ff6464; }
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="230"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="120"/>
+        </Grid.RowDefinitions>
 
-        .credits { font-size: 11px; color: #9ca3af; border-top: 1px solid #261E34; padding-top: 15px; }
-        .credits b { color: #fff; display: block; margin-bottom: 4px; }
-        .path { font-size: 9px; color: #6b7280; margin-top: 5px; word-break: break-all; }
+        <Border Grid.Row="0" Grid.Column="0" Background="#120e17" BorderBrush="#1f1729" BorderThickness="0,0,1,0" Padding="15">
+            <StackPanel>
+                <TextBlock Text="^._.^ AstroSS" FontSize="16" FontWeight="Bold" Foreground="#b464ff" Margin="0,0,0,25"/>
+                
+                <TextBlock Text="ACTIONS" FontSize="10" Foreground="#6b7280" FontWeight="Bold" Margin="0,0,0,8"/>
+                <Button x:Name="BtnOpenFolder" Content="Open Install Folder" Style="{StaticResource SidebarButtonStyle}"/>
+                <Button x:Name="BtnClearFiles" Content="Clear Downloaded Files" Style="{StaticResource SidebarButtonStyle}"/>
+                <Button x:Name="BtnNetLock" Content="Toggle NetLock" Style="{StaticResource SidebarButtonStyle}" Foreground="#ff6464"/>
+                
+                <TextBlock Text="CREDITS" FontSize="10" Foreground="#6b7280" FontWeight="Bold" Margin="0,30,0,5"/>
+                <TextBlock Text="Made by Astro" FontSize="11" Foreground="#d1d5db" FontWeight="Bold"/>
+                <TextBlock Text="Install path:" FontSize="10" Foreground="#6b7280" Margin="0,15,0,2"/>
+                <TextBlock Text="$ToolsDir" FontSize="9" Foreground="#9ca3af" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
 
-        /* Main Workspace */
-        .main-content { flex: 1; display: flex; flex-direction: column; padding: 20px; }
-        
-        /* Top Status Bar */
-        .status-bar { background: rgba(24, 20, 32, 0.7); border: 1px solid #261E34; border-radius: 8px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .status-title { font-size: 18px; font-weight: bold; color: #fff; }
-        .status-subtitle { font-size: 11px; color: #9ca3af; margin-top: 2px; }
-        .badge { background: #14532d; color: #4ade80; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #166534; }
+        <DockPanel Grid.Row="0" Grid.Column="1" Margin="15">
+            <Border DockPanel.Dock="Top" Background="#120e17" BorderBrush="#1f1729" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,0,12">
+                <Grid>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Ready" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock Text="Select a tool to launch or download it." FontSize="11" Foreground="#9ca3af" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="#064e3b" BorderBrush="#065f46" BorderThickness="1" CornerRadius="12" Padding="12,4">
+                        <TextBlock Text="IDLE" FontSize="11" FontWeight="Bold" Foreground="#4ade80"/>
+                    </Border>
+                </Grid>
+            </Border>
 
-        /* Tabs */
-        .tabs { display: flex; gap: 8px; margin-bottom: 15px; border-bottom: 1px solid #261E34; padding-bottom: 10px; }
-        .tab { background: transparent; border: none; color: #9ca3af; padding: 6px 14px; cursor: pointer; font-size: 13px; border-radius: 4px; font-weight: 500; }
-        .tab.active { background: #b464ff; color: #fff; font-weight: bold; }
+            <TabControl Background="Transparent" BorderBrush="#1f1729">
+                <TabItem Header="Orbdiff" Background="#120e17" Foreground="White" Padding="14,6">
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8" Tag="PrefetchView">
+                            <StackPanel>
+                                <TextBlock Text="PrefetchView" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
+                                <TextBlock Text="Parses prefetch, extracts file info" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8" Tag="BAMReveal">
+                            <StackPanel>
+                                <TextBlock Text="BAMReveal" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
+                                <TextBlock Text="Parses BAM forensic artifact" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8" Tag="StringsParser">
+                            <StackPanel>
+                                <TextBlock Text="StringsParser" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
+                                <TextBlock Text="Strings + YARA + signatures scanner" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8" Tag="InjGen">
+                            <StackPanel>
+                                <TextBlock Text="InjGen" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
+                                <TextBlock Text="Detects JNI/JVMTI memory injections" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                </TabItem>
 
-        /* Tool Cards Grid */
-        .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; overflow-y: auto; max-height: 310px; padding-right: 5px; }
-        .card { background: rgba(24, 20, 32, 0.6); border: 1px solid #261E34; border-radius: 8px; padding: 15px; cursor: pointer; transition: 0.2s; }
-        .card:hover { border-color: #b464ff; background: rgba(30, 24, 42, 0.8); transform: translateY(-2px); }
-        .card-title { font-weight: bold; font-size: 13px; color: #b464ff; margin-bottom: 5px; }
-        .card-desc { font-size: 11px; color: #9ca3af; line-height: 1.3; }
+                <TabItem Header="Spokwn" Background="#120e17" Foreground="White" Padding="14,6">
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8">
+                            <StackPanel>
+                                <TextBlock Text="UserAssistView" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
+                                <TextBlock Text="Parses ROT13 UserAssist execution history" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                </TabItem>
+            </TabControl>
+        </DockPanel>
 
-        /* Terminal Console */
-        .console { background: #070509; border: 1px solid #261E34; border-radius: 8px; padding: 12px; margin-top: auto; height: 90px; font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #4ade80; overflow-y: auto; }
-        .console-title { font-size: 9px
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="#070509" BorderBrush="#1f1729" BorderThickness="0,1,0,0" Padding="15">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="ACTIVITY CONSOLE" FontSize="9" Foreground="#6b7280" FontWeight="Bold" Margin="0,0,0,5"/>
+                <TextBox x:Name="ConsoleBox" IsReadOnly="True" Background="Transparent" Foreground="#4ade80" BorderBrush="Transparent" BorderThickness="0" FontFamily="Consolas" FontSize="11" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
+"@
+
+$reader = (New-Object System.Xml.XmlNodeReader $xaml)
+$window = [Windows.Markup.XamlReader]::Load($reader)
+
+# Map Elements
+$ConsoleBox =$window.FindName("ConsoleBox")
+$BtnOpenFolder =$window.FindName("BtnOpenFolder")
+$BtnClearFiles =$window.FindName("BtnClearFiles")
+$BtnNetLock =$window.FindName("BtnNetLock")
+
+function Write-ConsoleLog($msg) {$timestamp = Get-Date -Format "HH:mm:ss"
+    $ConsoleBox.AppendText("[$timestamp]$msg`r`n")
+    $ConsoleBox.ScrollToEnd()
+}
+
+# Bind Sidebar Actions
+$BtnOpenFolder.Add_Click({
+    Start-Process explorer.exe $ToolsDir
+    Write-ConsoleLog "Opened install directory: $ToolsDir"
+})
+
+$BtnClearFiles.Add_Click({
+    Remove-Item "$ToolsDir\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Write-ConsoleLog "Cleared downloaded tool cache."
+})
+
+$BtnNetLock.Add_Click({
+    try {
+        $rule = Get-NetFirewallRule -DisplayName "AstroSS-Netlock" -ErrorAction SilentlyContinue
+        if ($rule) {
+            Remove-NetFirewallRule -DisplayName "AstroSS-Netlock"
+            Write-ConsoleLog "NetLock DISABLED: Network access restored."
+        } else {
+            New-NetFirewallRule -DisplayName "AstroSS-Netlock" -Direction Outbound -Action Block -Profile Any | Out-Null
+            Write-ConsoleLog "NetLock ENGAGED: Outbound traffic blocked."
+        }
+    } catch {
+        Write-ConsoleLog "ERROR: Failed to update firewall rules."
+    }
+})
+
+# Bind Tool Cards dynamically
+$window.FindName("Orbdiff").Content | Get-Member -Name "Add_Click" -ErrorAction SilentlyContinue
+
+Write-ConsoleLog "Files
