@@ -1,125 +1,71 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AstroSSTool</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+# ==============================================================================
+# AstroSSTool - Dedicated GUI Window Edition
+# ==============================================================================
 
-        body {
-            background-color: #121016;
-            color: #ffffff;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            position: relative;
-        }
+# 1. Self-Elevation Check
+If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    Exit
+}
 
-        /* Floating background particles */
-        .particle {
-            position: absolute;
-            background-color: rgba(180, 100, 255, 0.6);
-            border-radius: 50%;
-            pointer-events: none;
-            animation: float 8s infinite ease-in-out;
-        }
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) scale(1); opacity: 0.3; }
-            50% { transform: translateY(-20px) scale(1.2); opacity: 0.8; }
-        }
+# 2. Build the Main Window
+$Form = New-Object System.Windows.Forms.Form
+$Form.Text = "AstroSSTool"
+$Form.Size = New-Object System.Drawing.Size(520, 360)
+$Form.StartPosition = "CenterScreen"
+$Form.BackColor = [System.Drawing.Color]::FromArgb(18, 16, 22) # Cyber Dark Purple
+$Form.ForeColor = [System.Drawing.Color]::White
+$Form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$Form.MaximizeBox = $false
 
-        /* Main Card Container */
-        .card {
-            background: rgba(24, 20, 32, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-            border-radius: 16px;
-            padding: 40px;
-            text-align: center;
-            width: 480px;
-            z-index: 10;
-            backdrop-filter: blur(10px);
-        }
+# Title Label
+$TitleLabel = New-Object System.Windows.Forms.Label
+$TitleLabel.Text = "AstroSSTool"
+$TitleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 20, [System.Drawing.FontStyle]::Bold)
+$TitleLabel.ForeColor = [System.Drawing.Color]::FromArgb(180, 100, 255)
+$TitleLabel.AutoSize = $true
+$TitleLabel.Location = New-Object System.Drawing.Point(170, 30)
+$Form.Controls.Add($TitleLabel)
 
-        .card h1 {
-            color: #b464ff;
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            letter-spacing: 0.5px;
-        }
+# Description Label
+$DescLabel = New-Object System.Windows.Forms.Label
+$DescLabel.Text = "Advanced forensic read-only moderation suite for detecting cheat signatures, execution history, and anti-forensic tampering on Windows."
+$DescLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$DescLabel.ForeColor = [System.Drawing.Color]::FromArgb(156, 163, 175)
+$DescLabel.Size = New-Object System.Drawing.Size(420, 45)
+$DescLabel.Location = New-Object System.Drawing.Point(50, 85)
+$Form.Controls.Add($DescLabel)
 
-        .card p {
-            color: #9ca3af;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 30px;
-        }
+# GitHub Button
+$BtnGitHub = New-Object System.Windows.Forms.Button
+$BtnGitHub.Text = "GitHub Repository"
+$BtnGitHub.Size = New-Object System.Drawing.Size(160, 40)
+$BtnGitHub.Location = New-Object System.Drawing.Point(85, 160)
+$BtnGitHub.BackColor = [System.Drawing.Color]::FromArgb(147, 51, 234)
+$BtnGitHub.ForeColor = [System.Drawing.Color]::White
+$BtnGitHub.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$BtnGitHub.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$BtnGitHub.Add_Click({
+    Start-Process "https://github.com/iyedjouamaa-dot/AstroSSTool"
+})
+$Form.Controls.Add($BtnGitHub)
 
-        /* Action Buttons */
-        .btn-container {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-        }
+# Run Scan Button (Local Execution trigger)
+$BtnScan = New-Object System.Windows.Forms.Button
+$BtnScan.Text = "Run Quick Audit"
+$BtnScan.Size = New-Object System.Drawing.Size(160, 40)
+$BtnScan.Location = New-Object System.Drawing.Point(265, 160)
+$BtnScan.BackColor = [System.Drawing.Color]::FromArgb(55, 40, 80)
+$BtnScan.ForeColor = [System.Drawing.Color]::White
+$BtnScan.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$BtnScan.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$BtnScan.Add_Click({
+    [System.Windows.Forms.MessageBox]::Show("Executing Prefetch and Registry forensic checks...", "AstroSS Audit", 0, 64)
+})
+$Form.Controls.Add($BtnScan)
 
-        .btn {
-            background-color: #9333ea;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 14px rgba(147, 51, 234, 0.4);
-        }
-
-        .btn:hover {
-            background-color: #a855f7;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(147, 51, 234, 0.6);
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Background Star Particles Generator -->
-    <script>
-        const particleCount = 35;
-        for (let i = 0; i < particleCount; i++) {
-            const p = document.createElement('div');
-            p.classList.add('particle');
-            const size = Math.random() * 3 + 1;
-            p.style.width = `${size}px`;
-            p.style.height = `${size}px`;
-            p.style.left = `${Math.random() * 100}vw`;
-            p.style.top = `${Math.random() * 100}vh`;
-            p.style.animationDuration = `${Math.random() * 6 + 4}s`;
-            p.style.animationDelay = `${Math.random() * 5}s`;
-            document.body.appendChild(p);
-        }
-    </script>
-
-    <!-- Center Hub Card -->
-    <div class="card">
-        <h1>AstroSSTool</h1>
-        <p>Advanced forensic read-only moderation suite for detecting cheat signatures, execution history, and anti-forensic tampering on Windows.</p>
-        <div class="btn-container">
-            <a href="https://github.com/iyedjouamaa-dot/AstroSSTool" target="_blank" class="btn">GitHub Repository</a>
-        </div>
-    </div>
-
-</body>
-</html>
+# 3. Render Window
+[void]$Form.ShowDialog()
