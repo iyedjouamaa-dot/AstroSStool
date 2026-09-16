@@ -1,5 +1,5 @@
 # ==============================================================================
-# AstroSS - Native C#-Backed Modern SS Suite
+# AstroSS - Native Aura-Styled Forensic Suite
 # ==============================================================================
 
 If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -23,7 +23,6 @@ if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir 
     WindowStyle="None" AllowsTransparency="True" ResizeMode="CanMinimize">
     
     <Window.Resources>
-        <!-- Modern Card Style -->
         <Style TargetType="Button" x:Key="ToolCard">
             <Setter Property="Background" Value="#121017"/>
             <Setter Property="Foreground" Value="White"/>
@@ -47,7 +46,6 @@ if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir 
             </Setter>
         </Style>
 
-        <!-- Sidebar Button Style -->
         <Style TargetType="Button" x:Key="SideBtn">
             <Setter Property="Background" Value="#121017"/>
             <Setter Property="Foreground" Value="#d8b4fe"/>
@@ -87,7 +85,7 @@ if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir 
             </Grid.ColumnDefinitions>
 
             <!-- CUSTOM TITLEBAR -->
-            <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="#0f0d14" MouseDown="DragWindow">
+            <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="#0f0d14" Name="TitleBarGrid">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                     <TextBlock Text="✦  ASTROSS // MODERATION SUITE" FontSize="11" FontWeight="Bold" Foreground="#a855f7"/>
                 </StackPanel>
@@ -98,7 +96,7 @@ if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir 
             </Grid>
 
             <!-- SIDEBAR -->
-            <Border Grid.Row="1" Grid.Column="0" Grid.RowSpan="1" Background="#0f0d14" BorderBrush="#1f1b29" BorderThickness="0,0,1,0" Padding="12">
+            <Border Grid.Row="1" Grid.Column="0" Background="#0f0d14" BorderBrush="#1f1b29" BorderThickness="0,0,1,0" Padding="12">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top">
                         <TextBlock Text="CONTROLS" FontSize="9" FontWeight="Bold" Foreground="#555" Margin="0,0,0,8"/>
@@ -158,12 +156,10 @@ if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir 
 $reader = (New-Object System.Xml.XmlNodeReader $xaml)
 $window = [Windows.Markup.XamlReader]::Load($reader)
 
-# Window controls bindings
+# Window Controls & Dragging Binding
 $window.FindName("BtnClose").Add_Click({ $window.Close() })
 $window.FindName("BtnMinimize").Add_Click({ $window.WindowState = "Minimized" })
-
-# Window dragging handler for borderless layout
-$window.Add_MouseDown({
+$window.FindName("TitleBarGrid").Add_MouseDown({
     if ($_.ChangedButton -eq "Left") { $window.DragMove() }
 })
 
