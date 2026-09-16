@@ -1,7 +1,6 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Administrator Check
 If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
     Exit
@@ -10,7 +9,6 @@ If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 $WorkDir = "$env:USERPROFILE\Downloads\AstroSSTool"
 if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null }
 
-# Form Setup
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "AstroSSTool // Forensic Suite"
 $form.Size = New-Object System.Drawing.Size(920, 620)
@@ -18,7 +16,6 @@ $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "None"
 $form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#09080b")
 
-# Custom TitleBar for Dragging & Close
 $titleBar = New-Object System.Windows.Forms.Panel
 $titleBar.Size = New-Object System.Drawing.Size(920, 35)
 $titleBar.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#0f0d14")
@@ -30,7 +27,6 @@ $titleBar.Add_MouseDown({ if ($_.Button -eq [System.Windows.Forms.MouseButtons]:
 $titleBar.Add_MouseUp({ $global:dragging = $false })
 $titleBar.Add_MouseMove({ if ($global:dragging) { $form.Location = New-Object System.Drawing.Point(($form.Location.X + $_.X - $global:offset.X), ($form.Location.Y + $_.Y - $global:offset.Y)) } })
 
-# Title Text
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text = "✦  ASTROSSTOOL // FORENSIC SUITE"
 $titleLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
@@ -39,25 +35,22 @@ $titleLabel.Location = New-Object System.Drawing.Point(12, 10)
 $titleLabel.AutoSize = $true
 $titleBar.Controls.Add($titleLabel)
 
-# Close Button
 $btnClose = New-Object System.Windows.Forms.Button
 $btnClose.Text = "✕"
 $btnClose.Size = New-Object System.Drawing.Size(35, 25)
-$btnClose.Location = New-Object System.Drawing.Size(875, 5)
+$btnClose.Location = New-Object System.Drawing.Point(875, 5)
 $btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
 $btnClose.ForeColor = [System.Drawing.Color]::Gray
 $btnClose.FlatAppearance.BorderSize = 0
 $btnClose.Add_Click({ $form.Close() })
 $titleBar.Controls.Add($btnClose)
 
-# Sidebar Panel
 $sidebar = New-Object System.Windows.Forms.Panel
 $sidebar.Size = New-Object System.Drawing.Size(220, 475)
 $sidebar.Location = New-Object System.Drawing.Point(0, 35)
 $sidebar.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#0f0d14")
 $form.Controls.Add($sidebar)
 
-# Console Output Box
 $console = New-Object System.Windows.Forms.TextBox
 $console.Multiline = $true
 $console.ReadOnly = $true
@@ -73,7 +66,6 @@ function Write-Log($msg) {
     $console.AppendText("[$time] $msg`r`n")
 }
 
-# Action Buttons
 $btnFolder = New-Object System.Windows.Forms.Button
 $btnFolder.Text = "Open Folder"
 $btnFolder.Size = New-Object System.Drawing.Size(196, 36)
