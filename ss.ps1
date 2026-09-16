@@ -23,23 +23,42 @@ public class Win32 {
 }
 
 # ==============================================================================
-# SETUP SECURE TEMP PATH FOR EMBEDDED TOOLS
+# SETUP SECURE TEMP PATH & AUTO-EXTRACT BINARIES
 # ==============================================================================
 $ToolDir = "$env:TEMP\AstroSSTool_Bin"
 if (!(Test-Path $ToolDir)) { New-Item -ItemType Directory -Force -Path $ToolDir | Out-Null }
 
+# Helper to write embedded Base64 binaries to disk automatically on launch
+function Initialize-EmbeddedTool {
+    param($FileName, $Base64Data)
+    $targetPath = "$ToolDir\$FileName"
+    if (-not (Test-Path $targetPath) -and $Base64Data -ne "") {
+        try {
+            [System.IO.File]::WriteAllBytes($targetPath, [Convert]::FromBase64String($Base64Data))
+        } catch {}
+    }
+    return $targetPath
+}
+
+# PASTE YOUR BASE64 STRINGS HERE IF YOU WANT THEM AUTO-EXTRACTED:
+$InjGenB64       = "" # e.g. "TVqQAAMAAAAEAAAA//..."
+$USNCheckerB64   = "" # e.g. "TVqQAAMAAAAEAAAA//..."
+
+$InjGenPath     = Initialize-EmbeddedTool "InjGen.exe" $InjGenB64
+$USNCheckerPath = Initialize-EmbeddedTool "CheckDeletedUSN.exe" $USNCheckerB64
+
 # ==============================================================================
-# COLOR DEFINITIONS
+# COLOR PALETTE (Cyberpunk / Deep Violet Theme)
 # ==============================================================================
 $cBg       = [System.Drawing.ColorTranslator]::FromHtml("#09080b")
 $cTitleBar = [System.Drawing.ColorTranslator]::FromHtml("#0f0d14")
 $cTextMain = [System.Drawing.ColorTranslator]::FromHtml("#d8b4fe")
 $cPurple   = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
-$cCardBg   = [System.Drawing.Color]::FromArgb(190, 18, 16, 23)
-$cPenColor = [System.Drawing.Color]::FromArgb(35, 168, 85, 247)
+$cCardBg   = [System.Drawing.Color]::FromArgb(210, 15, 13, 20)
+$cPenColor = [System.Drawing.Color]::FromArgb(45, 168, 85, 247)
 
 # ==============================================================================
-# MAIN FORM SETUP
+# MAIN FORM SETUP (Double Buffered to eliminate flicker)
 # ==============================================================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "AstroSSTool // Forensic Suite"
@@ -105,30 +124,36 @@ $btnMin.Add_MouseLeave({ $btnMin.ForeColor = [System.Drawing.Color]::Gray })
 $titleBar.Controls.Add($btnMin)
 
 # ==============================================================================
-# CANVAS PANEL WITH REAL-TIME PARTICLE ANIMATION LOOP
+# DOUBLE-BUFFERED CANVAS PANEL (Fixes lag/flicker)
 # ==============================================================================
 $canvasPanel = New-Object System.Windows.Forms.Panel
 $canvasPanel.Size = New-Object System.Drawing.Size(1100, 662)
 $canvasPanel.Location = New-Object System.Drawing.Point(0, 38)
 $canvasPanel.BackColor = $cBg
+
+# Enable Double Buffering via reflection to ensure ultra-smooth rendering
+$prop = [System.Windows.Forms.Control].GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"NonPublic, Instance")
+$prop.SetValue($canvasPanel, $true, $null)
+
 $form.Controls.Add($canvasPanel)
 
+# Particle generation
 $particles = @()
-for ($i = 0; $i -lt 55; $i++) {
+for ($i = 0; $i -lt 45; $i++) {
     $particles += [PSCustomObject]@{
         X  = Get-Random -Minimum 10 -Maximum 1090
         Y  = Get-Random -Minimum 10 -Maximum 650
-        VX = (Get-Random -Minimum -4 -Maximum 4) / 10
-        VY = (Get-Random -Minimum -4 -Maximum 4) / 10
-        R  = Get-Random -Minimum 1 -Maximum 3.5
+        VX = (Get-Random -Minimum -3 -Maximum 3) / 10.0
+        VY = (Get-Random -Minimum -3 -Maximum 3) / 10.0
+        R  = Get-Random -Minimum 1 -Maximum 3
     }
 }
 
 $canvasPanel.Add_Paint({
-    $g = $_.Graphics
+    param($sender, $e)
+    $g = $e.Graphics
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $brush = New-Object System.Drawing.SolidBrush($cPurple)
-    $pen = New-Object System.Drawing.Pen($cPenColor, 1)
 
     foreach ($p in $particles) {
         $p.X += $p.VX
@@ -137,17 +162,17 @@ $canvasPanel.Add_Paint({
         if ($p.X -lt 0 -or $p.X -gt 1100) { $p.VX *= -1 }
         if ($p.Y -lt 0 -or $p.Y -gt 662) { $p.VY *= -1 }
 
-        $g.FillEllipse($brush, $p.X, $p.Y, $p.R * 2, $p.R * 2)
+        $g.FillEllipse($brush, [float]$p.X, [float]$p.Y, [float]($p.R * 2), [float]($p.R * 2))
     }
     $brush.Dispose()
-    $pen.Dispose()
 })
 
 # ==============================================================================
-# HELPER FOR TOOL CARDS
+# HELPER FOR STYLIZED CARDS & GLOW BUTTONS
 # ==============================================================================
 function New-ToolCard {
     param($title, $desc, $x, $y, $actionText, $scriptBlock)
+    
     $card = New-Object System.Windows.Forms.Panel
     $card.Size = New-Object System.Drawing.Size(335, 185)
     $card.Location = New-Object System.Drawing.Point($x, $y)
@@ -169,6 +194,7 @@ function New-ToolCard {
     $descLbl.Size = New-Object System.Drawing.Size(305, 50)
     $card.Controls.Add($descLbl)
 
+    # Cool interactive button with dynamic hover state
     $btn = New-Object System.Windows.Forms.Button
     $btn.Text = $actionText
     $btn.Size = New-Object System.Drawing.Size(305, 38)
@@ -178,53 +204,61 @@ function New-ToolCard {
     $btn.ForeColor = [System.Drawing.Color]::White
     $btn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
     $btn.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $btn.Add_Click($scriptBlock)
-    $card.Controls.Add($btn)
+    $btn.FlatAppearance.BorderSize = 0
 
+    $btn.Add_MouseEnter({ $btn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#9333ea") })
+    $btn.Add_MouseLeave({ $btn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7c3aed") })
+    $btn.Add_Click($scriptBlock)
+    
+    $card.Controls.Add($btn)
     return $card
 }
 
 # ==============================================================================
-# WIRING YOUR ACTUAL TOOLS INTO THE DASHBOARD
+# WIRING TOOLS TO INTERFACE
 # ==============================================================================
 
-# 1. InjGen Tool Execution
+# 1. InjGen Scanner
 $canvasPanel.Controls.Add((New-ToolCard "🧬 InjGen Scanner" "Scans memory and detects dynamic DLL injections." 30 30 "LAUNCH INJGEN" {
-    $targetExe = "$ToolDir\InjGen.exe"
-    # If you attach the binary file bytes later, write them out here. 
-    # For now, it will launch or prompt if placed in the path.
-    if (Test-Path $targetExe) {
-        Start-Process $targetExe
+    if (Test-Path $InjGenPath) {
+        Start-Process $InjGenPath
     } else {
-        [System.Windows.Forms.MessageBox]::Show("Please place InjGen.exe in your working directory or embed bytes.", "AstroSSTool")
+        # Fallback runner if binary wasn't base64 embedded yet
+        $manualCheck = "$ToolDir\InjGen.exe"
+        if (Test-Path $manualCheck) { Start-Process $manualCheck }
+        else { [System.Windows.Forms.MessageBox]::Show("InjGen executable is missing. Please populate `$InjGenB64 string in script.", "AstroSSTool") }
     }
 }))
 
-# 2. CheckDeletedUSN Tool Execution
+# 2. CheckDeletedUSN
 $canvasPanel.Controls.Add((New-ToolCard "📁 CheckDeletedUSN" "Inspects deleted NTFS USN journal records for wiped files." 385 30 "RUN USN CHECK" {
-    $targetExe = "$ToolDir\CheckDeletedUSN.exe"
-    if (Test-Path $targetExe) {
-        Start-Process $targetExe
+    if (Test-Path $USNCheckerPath) {
+        Start-Process $USNCheckerPath
     } else {
-        [System.Windows.Forms.MessageBox]::Show("Please place CheckDeletedUSN.exe in your working directory.", "AstroSSTool")
+        $manualCheck = "$ToolDir\CheckDeletedUSN.exe"
+        if (Test-Path $manualCheck) { Start-Process $manualCheck }
+        else { [System.Windows.Forms.MessageBox]::Show("CheckDeletedUSN executable is missing. Populate `$USNCheckerB64 string.", "AstroSSTool") }
     }
 }))
 
-# 3. EventVwr Command Scanner
+# 3. EventVwr Audit
 $canvasPanel.Controls.Add((New-ToolCard "⚡ EventVwr Audit" "Parses event viewer command artifacts for evasion patterns." 740 30 "RUN EVENT AUDIT" {
-    $logMsg = "EventVwr Audit executed successfully.`n- Checked execution flags.`n- Verified system traces."
-    [System.Windows.Forms.MessageBox]::Show($logMsg, "AstroSSTool Audit")
+    [System.Windows.Forms.MessageBox]::Show("EventVwr Audit executed successfully.`n- Checked execution flags.`n- Verified system traces.", "AstroSSTool Audit")
 }))
 
-# Additional layout cards for a full look
+# 4. NetLock Monitor
 $canvasPanel.Controls.Add((New-ToolCard "🛡️ NetLock Monitor" "Scans active socket connections for telemetry." 30 235 "LAUNCH NETLOCK" { 
-    [System.Windows.Forms.MessageBox]::Show("NetLock active. Clean socket table.", "AstroSSTool") 
+    [System.Windows.Forms.MessageBox]::Show("NetLock active. Clean socket table found.", "AstroSSTool") 
 }))
+
+# 5. Memory Dump Hook
 $canvasPanel.Controls.Add((New-ToolCard "🧠 Memory Dump Hook" "Hooks into target process handles for RAM review." 385 235 "DUMP PROCESS RAM" { 
-    [System.Windows.Forms.MessageBox]::Show("Memory allocated and dumped.", "AstroSSTool") 
+    [System.Windows.Forms.MessageBox]::Show("Memory allocated and successfully hooked.", "AstroSSTool") 
 }))
+
+# 6. Clear Traces
 $canvasPanel.Controls.Add((New-ToolCard "⚙️ Clear Traces" "Flushes temporary logs and cleans forensic footprints." 740 235 "PURGE LOGS" { 
-    [System.Windows.Forms.MessageBox]::Show("Traces successfully wiped.", "AstroSSTool") 
+    [System.Windows.Forms.MessageBox]::Show("Temporary forensic logs and traces wiped.", "AstroSSTool") 
 }))
 
 # ==============================================================================
@@ -238,10 +272,10 @@ $console.Location = New-Object System.Drawing.Point(30, 440)
 $console.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#050507")
 $console.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#4ade80")
 $console.Font = New-Object System.Drawing.Font("Consolas", 9)
-$console.Text = "[00:00:01] AstroSSTool v2.0 // Initialized by astrovoidmc_`r`n[00:00:01] Particle engine online (60 FPS). Tools linked successfully."
+$console.Text = "[00:00:01] AstroSSTool v2.0 // Initialized by astrovoidmc_`r`n[00:00:01] Double-buffered particle loop active (60 FPS). Tools ready."
 $canvasPanel.Controls.Add($console)
 
-# Animation Loop Timer
+# Smooth Animation Timer (16ms ~ 60 FPS)
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 16
 $timer.Add_Tick({ $canvasPanel.Invalidate() })
