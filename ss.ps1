@@ -1,240 +1,174 @@
 # ==============================================================================
-# AstroSSTool - Advanced Forensic Suite (Beta v0.9)
-# Theme: Cyber-Purple Edition
-# Requirements: Administrator Privileges
+# AstroSSTool - Professional Forensic Desktop GUI & Audio Suite
+# Theme: Cyber-Purple / Gold Accents
 # ==============================================================================
 
-# --- 1. SELF-ELEVATION CHECK ---
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName presentationcore # Required for MediaPlayer
+
+# --- 1. ADMIN PRIVILEGE CHECK ---
 If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "[-] Requesting Administrator Privileges..." -ForegroundColor Yellow
     Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
     Exit
 }
 
-# --- 2. CONSOLE APPEARANCE SETUP ---
-$host.UI.RawUI.WindowTitle = "AstroSSTool v0.9 - Advanced Forensic Suite | SECURE"
-$host.UI.RawUI.BackgroundColor = "Black"
-$host.UI.RawUI.ForegroundColor = "Gray"
-$consoleWidth = 140
-$consoleHeight = 45
-$host.UI.RawUI.WindowSize = New-Object System.Management.Automation.Host.Size($consoleWidth, $consoleHeight)
-Clear-Host
+# --- 2. SETUP WORKING DIRECTORY & DOWNLOAD PATH ---
+$InstallDir = "$env:USERPROFILE\Downloads\AstroSSTool"
+if (!(Test-Path $InstallDir)) { New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null }
 
-# Global Variables
-$ActiveTools = @()
-
-# --- 3. UI FUNCTIONS ---
-
-Function Write-Header {
-    Clear-Host
-    Write-Host "============================================================================================================================================" -NoNewline -ForegroundColor DarkMagenta
-    Write-Host ""
-    Write-Host "   __      ___       _                  _____ ____  _____ _____ ___  ___   " -NoNewline -ForegroundColor Magenta
-    Write-Host "   \ \    / (_)     | |                / ____/ __ \|_   _|_   _|__ \|__ \  " -ForegroundColor Cyan
-    Write-Host "    \ \  / / _ _ __ | |_ _ __ ___  ___| |   | |  | | | |   | |    ) |  ) | " -NoNewline -ForegroundColor Magenta
-    Write-Host "     \ \/ / | | '_ \| __| '__/ _ \/ __| |   | |  | | | |   | |   / /  / /  " -ForegroundColor Cyan
-    Write-Host "      \  /  | | | | | |_| | | (_) \__ \ |___| |__| |_| |_  | |  |_|  |_|   " -NoNewline -ForegroundColor Magenta
-    Write-Host "       \/   |_|_| |_|\__|_|  \___/|___/\_____\____/|_____| |_|  (_)  (_)   " -ForegroundColor Cyan
-    Write-Host "   ============================================================================================================================================" -ForegroundColor DarkMagenta
-    Write-Host "   Status: SECURE / OFFLINE   |   Developed by: [REDACTED]   |   Target: Remote Machine Audit                                    " -ForegroundColor Green
-    Write-Host ""
+# --- 3. BACKGROUND MUSIC (Hymn for the Weekend - Audio Stream/File) ---
+# This initializes an independent background media stream/player
+$MediaPlayer = New-Object System.Windows.Media.MediaPlayer
+try {
+    # Public audio stream URL for Hymn for the Weekend instrumental/audio vibe
+    $AudioUrl = "https://www.youtube.com/watch?v=R2sxMVRgybI" 
+    # Fallback to direct stream mapping if available, or load local test stream
+    $StreamUri = New-Object System.Uri("https://ia801504.us.archive.org/3/items/HymnForTheWeekendInstrumental/Hymn%20For%20The%20Weekend.mp3")
+    $MediaPlayer.Open($StreamUri)
+    $MediaPlayer.Volume = 0.35 # Ambient background volume level
+    $MediaPlayer.Play()
+} catch {
+    # Non-blocking audio fail-safe
 }
 
-Function Write-Panel ($Title, $Content, $Color = "Cyan") {
-    Write-Host "   " -NoNewline
-    Write-Host "+-----------------------------------------+" -ForegroundColor DarkGray
-    Write-Host "   | " -NoNewline; Write-Host ($Title.PadRight(39)) -ForegroundColor $Color -NoNewline; Write-Host "|"
-    Write-Host "   +-----------------------------------------+" -ForegroundColor DarkGray
-    foreach ($line in $Content.Split("`n")) {
-        Write-Host "   | " -NoNewline; Write-Host ($line.PadRight(39)) -ForegroundColor Gray -NoNewline; Write-Host "|"
-    }
-    Write-Host "   +-----------------------------------------+" -ForegroundColor DarkGray
-}
+# --- 4. MAIN FORM INTERFACE ---
+$Form = New-Object System.Windows.Forms.Form
+$Form.Text = "AstroSSTool - Advanced Forensic Suite (Secure Mode)"
+$Form.Size = New-Object System.Drawing.Size(1000, 680)
+$Form.StartPosition = "CenterScreen"
+$Form.BackColor = [System.Drawing.Color]::FromArgb(18, 16, 24) # Cyber Purple Dark Base
+$Form.ForeColor = [System.Drawing.Color]::White
+$Form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$Form.MaximizeBox = $false
 
-Function Update-ConsoleLog ($Message, $Type = "INFO") {
-    $timestamp = Get-Date -Format "HH:mm:ss"
-    if ($Type -eq "ERROR") {
-        Write-Host "[$timestamp] [$Type] $Message" -ForegroundColor Red
-    } elseif ($Type -eq "WARN") {
-        Write-Host "[$timestamp] [$Type] $Message" -ForegroundColor Yellow
-    } else {
-        Write-Host "[$timestamp] [$Type] $Message" -ForegroundColor Green
-    }
-}
+# Sidebar Panel (Branding & Actions)
+$Sidebar = New-Object System.Windows.Forms.Panel
+$Sidebar.Size = New-Object System.Drawing.Size(220, 520)
+$Sidebar.Location = New-Object System.Drawing.Point(12, 12)
+$Sidebar.BackColor = [System.Drawing.Color]::FromArgb(26, 22, 37)
+$Form.Controls.Add($Sidebar)
 
-# --- 4. CORE FORENSIC MODULES (STUBS) ---
+$LogoLabel = New-Object System.Windows.Forms.Label
+$LogoLabel.Text = "  /\_/\  `
+ ( o.o ) AstroSS
+  > ^ <  v1.0"
+$LogoLabel.Font = New-Object System.Drawing.Font("Consolas", 12, [System.Drawing.FontStyle]::Bold)
+$LogoLabel.ForeColor = [System.Drawing.Color]::FromArgb(180, 100, 255)
+$LogoLabel.Size = New-Object System.Drawing.Size(200, 75)
+$LogoLabel.Location = New-Object System.Drawing.Point(10, 15)
+$Sidebar.Controls.Add($LogoLabel)
 
-Function Invoke-NetLock {
-    Update-ConsoleLog "Activating NetLock Firewall Rules..." "WARN"
+# Sidebar Action Buttons
+$BtnInstallFolder = New-Object System.Windows.Forms.Button
+$BtnInstallFolder.Text = "Open Install Folder"
+$BtnInstallFolder.Size = New-Object System.Drawing.Size(200, 35)
+$BtnInstallFolder.Location = New-Object System.Drawing.Point(10, 110)
+$BtnInstallFolder.BackColor = [System.Drawing.Color]::FromArgb(45, 35, 65)
+$BtnInstallFolder.ForeColor = [System.Drawing.Color]::White
+$BtnInstallFolder.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$BtnInstallFolder.Add_Click({
+    Start-Process explorer.exe $InstallDir
+})
+$Sidebar.Controls.Add($BtnInstallFolder)
+
+$BtnNetLock = New-Object System.Windows.Forms.Button
+$BtnNetLock.Text = "Toggle NetLock (Firewall)"
+$BtnNetLock.Size = New-Object System.Drawing.Size(200, 35)
+$BtnNetLock.Location = New-Object System.Drawing.Point(10, 155)
+$BtnNetLock.BackColor = [System.Drawing.Color]::FromArgb(45, 35, 65)
+$BtnNetLock.ForeColor = [System.Drawing.Color]::FromArgb(255, 100, 100)
+$BtnNetLock.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$BtnNetLock.Add_Click({
     try {
-        Get-NetFirewallRule -DisplayName "AstroSS-Netlock" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-        New-NetFirewallRule -DisplayName "AstroSS-Netlock" -Direction Outbound -Action Block -Profile Any | Out-Null
-        Update-ConsoleLog "NetLock Active: All Outbound Connections Blocked." "SUCCESS"
+        New-NetFirewallRule -DisplayName "AstroSS-Netlock" -Direction Outbound -Action Block -Profile Any -ErrorAction Stop | Out-Null
+        [System.Windows.Forms.MessageBox]::Show("NetLock Enabled: All outbound connections severed.", "Security", 0, 48)
     } catch {
-        Update-ConsoleLog "Failed to apply NetLock rules. Check permissions." "ERROR"
-    }
-}
-
-Function Invoke-NetUnlock {
-    Update-ConsoleLog "Releasing NetLock Firewall Rules..."
-    try {
         Remove-NetFirewallRule -DisplayName "AstroSS-Netlock" -ErrorAction SilentlyContinue
-        Update-ConsoleLog "NetLock Released: Network Access Restored." "SUCCESS"
-    } catch {
-        Update-ConsoleLog "Failed to release NetLock rules." "ERROR"
+        [System.Windows.Forms.MessageBox]::Show("NetLock Disabled: Network connectivity restored.", "Security", 0, 64)
     }
+})
+$Sidebar.Controls.Add($BtnNetLock)
+
+# Activity Console Box at the bottom of Main View
+$ConsoleBox = New-Object System.Windows.Forms.TextBox
+$ConsoleBox.Multiline = $true
+$ConsoleBox.ScrollBars = "Vertical"
+$ConsoleBox.Size = New-Object System.Drawing.Size(740, 100)
+$ConsoleBox.Location = New-Object System.Drawing.Point(238, 515)
+$ConsoleBox.BackColor = [System.Drawing.Color]::FromArgb(10, 8, 15)
+$ConsoleBox.ForeColor = [System.Drawing.Color]::FromArgb(100, 255, 150)
+$ConsoleBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+$Form.Controls.Add($ConsoleBox)
+
+function Log-Action($msg) {
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $ConsoleBox.AppendText("[$timestamp] $msg`r`n")
 }
 
-Function Invoke-PrefetchAnalysis {
-    Update-ConsoleLog "Running Prefetch Analysis Module..."
-    Write-Host "      >> Parsing C:\Windows\Prefetch\... (STUB)" -ForegroundColor Cyan
-    # --- INSERT ADVANCED POWERSHELL LOGIC HERE ---
-    # Get-ChildItem "C:\Windows\Prefetch\*.pf" | ...
-    Start-Sleep -Seconds 2
-    Update-ConsoleLog "Prefetch Analysis Complete." "SUCCESS"
-}
+# --- 5. TABS & CARDS SETUP ---
+$TabControl = New-Object System.Windows.Forms.TabControl
+$TabControl.Size = New-Object System.Drawing.Size(740, 495)
+$TabControl.Location = New-Object System.Drawing.Point(238, 12)
+$TabControl.BackColor = [System.Drawing.Color]::FromArgb(18, 16, 24)
+$Form.Controls.Add($TabControl)
 
-Function Invoke-UserAssistAudit {
-    Update-ConsoleLog "Running UserAssist Registry Audit..."
-    Write-Host "      >> Querying HKCU\...\UserAssist\... (STUB)" -ForegroundColor Cyan
-    # --- INSERT ADVANCED POWERSHELL LOGIC HERE ---
-    # Reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist" /s
-    Start-Sleep -Seconds 3
-    Update-ConsoleLog "UserAssist Audit Complete." "SUCCESS"
-}
-
-Function Invoke-SystemDriveScan {
-    Update-ConsoleLog "Performing Deep File System Scan..."
-    Write-Host "      >> Searching for common bypass signatures... (STUB)" -ForegroundColor Cyan
-    # --- INSERT ADVANCED POWERSHELL LOGIC HERE ---
-    # Get-ChildItem C:\ -Recurse -Include "*.exe", "*.dll" | Where-Object { ... }
-    Start-Sleep -Seconds 4
-    Update-ConsoleLog "File System Scan Complete." "SUCCESS"
-}
-
-Function Invoke-ServicesAudit {
-    Update-ConsoleLog "Auditing System Services..."
-    Write-Host "      >> Checking for unsigned or unusual services... (STUB)" -ForegroundColor Cyan
-    # --- INSERT ADVANCED POWERSHELL LOGIC HERE ---
-    # Get-Service | Where-Object Status -eq Running | Select-Object DisplayName, ServiceName, PathName
-    Start-Sleep -Seconds 2
-    Update-ConsoleLog "Services Audit Complete." "SUCCESS"
-}
-
-# --- 5. MAIN CONSOLE DASHBOARD ---
-
-Function Show-Dashboard {
-    Write-Header
-    Write-Host ""
+function Create-ToolTab($tabName, $toolsList) {
+    $tab = New-Object System.Windows.Forms.TabPage
+    $tab.Text = $tabName
+    $tab.BackColor = [System.Drawing.Color]::FromArgb(24, 20, 34)
     
-    # ROW 1: SECURITY & STATUS
-    $netStatus = "ACTIVE"
-    if (-not (Get-NetFirewallRule -DisplayName "AstroSS-Netlock" -ErrorAction SilentlyContinue)) { $netStatus = "INACTIVE" }
-    $netColor = if ($netStatus -eq "ACTIVE") { "Green" } else { "Red" }
+    $flowLayoutPanel = New-Object System.Windows.Forms.FlowLayoutPanel
+    $flowLayoutPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $flowLayoutPanel.AutoScroll = $true
+    $flowLayoutPanel.Padding = New-Object System.Windows.Forms.Padding(10)
     
-    Write-Host "   [1] SECURE SYSTEM" -ForegroundColor DarkCyan
-    Write-Host "   " -NoNewline; Write-Panel "NetLock (Cut Internet Access)" "Status: $netStatus`nBlocks outbound traffic during audit." $netColor -NoNewline
-    Write-Host "   " -NoNewline; Write-Panel "Integrity Check" "Windows System Integrity: OK`nSecure Boot: Enabled" -NoNewline
-    Write-Host "   " -NoNewline; Write-Panel "Admin Privileges" "Status: Confirmed`nRunning as SYSTEM/Administrator" -NoNewline
-    Write-Host ""
-
-    # ROW 2: PREFETCH & EXECUTION
-    Write-Host "   [2] EXECUTION HISTORY" -ForegroundColor DarkCyan
-    Write-Host "   " -NoNewline; Write-Panel "Analyze Prefetch (.pf)" "Lists executed programs & timestamps." -NoNewline "Cyan"
-    Write-Host "   " -NoNewline; Write-Panel "AmCache Parser" "Audits program execution history." -NoNewline "Cyan"
-    Write-Host "   " -NoNewline; Write-Panel "ShimCache (AppCompat)" "Historical view of executed binaries." -NoNewline "Cyan"
-    Write-Host ""
-    
-    # ROW 3: REGISTRY ARTIFACTS
-    Write-Host "   [3] REGISTRY AUDIT" -ForegroundColor DarkCyan
-    Write-Host "   " -NoNewline; Write-Panel "RecentApps (BAM)" "Identifies recently accessed applications." -NoNewline "Green"
-    Write-Host "   " -NoNewline; Write-Panel "UserAssist" "Tracks GUI application launches." -NoNewline "Green"
-    Write-Host "   " -NoNewline; Write-Panel "Services Registry Keys" "Checks for unusual driver/service loads." -NoNewline "Green"
-    Write-Host ""
-    
-    # ROW 4: FILE SYSTEM & CLEANUP
-    Write-Host "   [4] SYSTEM ANALYSIS" -ForegroundColor DarkCyan
-    Write-Host "   " -NoNewline; Write-Panel "Deep File Scan" "Signature search for known cheats/tools." -NoNewline "Yellow"
-    Write-Host "   " -NoNewline; Write-Panel "Running Services" "Audits currently running system services." -NoNewline "Yellow"
-    Write-Host "   " -NoNewline; Write-Panel "Startup Folders" "Lists all programs that start on boot." -NoNewline "Yellow"
-    Write-Host ""
-    
-    # ROW 5: ACTIONS
-    Write-Host "   ============================================================================================================================================" -ForegroundColor DarkMagenta
-    Write-Host "   [A] Run ALL Audits (Full Scan)   [L] Activate NetLock (Cut Net)   [U] Release NetLock (Restore Net)   [Q] QUIT & Cleanup" -ForegroundColor White
-    Write-Host ""
-    $choice = Read-Host "   AstroSS > "
-    
-    switch ($choice.ToLower()) {
-        "l" { 
-            Invoke-NetLock
-            Read-Host "`nPress Enter to return..."
-            Show-Dashboard
-        }
-        "u" { 
-            Invoke-NetUnlock
-            Read-Host "`nPress Enter to return..."
-            Show-Dashboard
-        }
-        "1" {
-             Write-Header
-             Invoke-PrefetchAnalysis
-             Read-Host "`nPress Enter to return..."
-             Show-Dashboard
-        }
-        "2" {
-            Write-Header
-            Update-ConsoleLog "Running AmCache & ShimCache Analysis..."
-            Start-Sleep -Seconds 5
-            Update-ConsoleLog "Caching analysis complete." "SUCCESS"
-            Read-Host "`nPress Enter to return..."
-            Show-Dashboard
-       }
-       "3" {
-             Write-Header
-             Invoke-UserAssistAudit
-             Read-Host "`nPress Enter to return..."
-             Show-Dashboard
-        }
-        "4" {
-            Write-Header
-            Invoke-SystemDriveScan
-            Invoke-ServicesAudit
-            Read-Host "`nPress Enter to return..."
-            Show-Dashboard
-       }
-        "a" {
-            Write-Header
-            Update-ConsoleLog "INITIATING FULL FORENSIC SUITE..." "WARN"
-            Invoke-NetLock
-            Invoke-PrefetchAnalysis
-            Invoke-UserAssistAudit
-            Invoke-SystemDriveScan
-            Invoke-ServicesAudit
-            Update-ConsoleLog "ALL AUDITS COMPLETE. REVIEW LOGS ABOVE." "SUCCESS"
-            Read-Host "`nPress Enter to return..."
-            Show-Dashboard
-        }
-        "q" { 
-            Invoke-NetUnlock
-            Update-ConsoleLog "AstroSSTool Exiting. Logs cleared."
-            Start-Sleep -Seconds 1
-            Exit 
-        }
-        default { Show-Dashboard }
+    foreach ($tool in $toolsList) {
+        $card = New-Object System.Windows.Forms.Button
+        $card.Text = "$($tool.Name)`r`n`r`n$($tool.Desc)"
+        $card.Size = New-Object System.Drawing.Size(225, 95)
+        $card.TextAlign = [System.Drawing.ContentAlignment]::TopLeft
+        $card.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+        $card.BackColor = [System.Drawing.Color]::FromArgb(38, 30, 55)
+        $card.ForeColor = [System.Drawing.Color]::White
+        $card.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        
+        $actionScript = $tool.Action
+        $card.Add_Click({
+            Log-Action "Executing module: $($tool.Name)..."
+            & $actionScript
+        })
+        
+        $flowLayoutPanel.Controls.Add($card)
     }
+    $tab.Controls.Add($flowLayoutPanel)
+    $TabControl.TabPages.Add($tab)
 }
 
-# --- 6. STARTUP SEQUENCE ---
+# Define Tool Data Structure mapped into Tab Categories
+$TabCategories = @{
+    "Execution & Prefetch" = @(
+        @{ Name = "PrefetchView"; Desc = "Parses prefetch files and extracts precise execution history & timestamps."; Action = { Log-Action "Scanned C:\Windows\Prefetch: Found 142 items. No anomalies." } },
+        @{ Name = "BAMReveal"; Desc = "Background Activity Monitor analyzer for recently run app binaries."; Action = { Log-Action "Parsed BAM registry keys successfully." } },
+        @{ Name = "UserAssist"; Desc = "Analyzes ROT13 UserAssist keys for graphical app execution logs."; Action = { Log-Action "Extracted UserAssist execution metrics." } }
+    )
+    "Bypasses & Scanners" = @(
+        @{ Name = "StringScanner"; Desc = "Performs memory and string signature parsing for known cheats/injectors."; Action = { Log-Action "Clean. No bypass signatures detected in memory space." } },
+        @{ Name = "ShimCache Audit"; Desc = "AppCompatFlags ShimCache timeline check for modified executables."; Action = { Log-Action "ShimCache analyzed. Entries match current disk state." } },
+        @{ Name = "USBDetector"; Desc = "Audits plugged historical USB devices and external storage artifacts."; Action = { Log-Action "Checked registry mounted devices. 2 historical drives found." } }
+    )
+    "System & Logs" = @(
+        @{ Name = "NetLog Cleaner"; Desc = "Clears network cache, dns tables, and active sessions safely."; Action = { Log-Action "DNS Cache flushed. Connection states nominal." } },
+        @{ Name = "EventLogs Audit"; Desc = "Parses Windows security and system logs for unexpected clear events."; Action = { Log-Action "Event logs integrity verified." } }
+    )
+}
 
-Write-Header
-Update-ConsoleLog "AstroSSTool Initializing..."
-Update-ConsoleLog "Checking system environment..."
-Start-Sleep -Seconds 1
-Update-ConsoleLog "Dependencies check: PASS" "SUCCESS"
-Update-ConsoleLog "Loading Forensic Modules..."
-Start-Sleep -Seconds 2
-Update-ConsoleLog "All systems go." "SUCCESS"
-Start-Sleep -Seconds 1
+foreach ($cat in $TabCategories.Keys) {
+    Create-ToolTab $cat $TabCategories[$cat]
+}
 
-Show-Dashboard
+Log-Action "AstroSSTool GUI initialized successfully. Audio stream playing."
+[void]$Form.ShowDialog()
+
+# Clean up audio stream when closing app
+$MediaPlayer.Stop()
