@@ -1,195 +1,69 @@
 # ==============================================================================
-# AstroSSTool - Native WPF Dark Theme Edition
+# AstroSSTool - Forensic Moderation Suite
 # ==============================================================================
 
-# Self-Elevation Check
+# 1. Self-Elevation Check
 If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
     Exit
 }
 
-Add-Type -AssemblyName PresentationFramework
-Add-Type -AssemblyName PresentationCore
-Add-Type -AssemblyName WindowsBase
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
 $ToolsDir = "$env:USERPROFILE\Downloads\AstroSSTool"
-if (!(Test-Path $ToolsDir)) { New-Item -ItemType Directory -Force -Path$ToolsDir | Out-Null }
+if (!(Test-Path $ToolsDir)) { New-Item -ItemType Directory -Force -Path $ToolsDir | Out-Null }
 
-[xml]$xaml = @"
-<Window 
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="AstroSSTool" Height="650" Width="980" WindowStartupLocation="CenterScreen"
-    Background="#0b090e" Foreground="White" ResizeMode="CanMinimize">
-    
-    <Window.Resources>
-        <Style TargetType="Button" x:Key="CardButtonStyle">
-            <Setter Property="Background" Value="#17121f"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#2b203c"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="12">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#21192e"/>
-                    <Setter Property="BorderBrush" Value="#b464ff"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+# --- 2. MAIN WINDOW CONFIGURATION ---
+$Form = New-Object System.Windows.Forms.Form
+$Form.Text = "AstroSSTool - Forensic Moderation Suite"
+$Form.Size = New-Object System.Drawing.Size(950, 650)
+$Form.StartPosition = "CenterScreen"
+$Form.BackColor = [System.Drawing.Color]::FromArgb(22, 22, 24) # Matches #161618
+$Form.ForeColor = [System.Drawing.Color]::FromArgb(224, 224, 224)
+$Form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
+$Form.MaximizeBox = $false
 
-        <Style TargetType="Button" x:Key="SidebarButtonStyle">
-            <Setter Property="Background" Value="#17121f"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#2b203c"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#261b36"/>
-                    <Setter Property="BorderBrush" Value="#b464ff"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-    </Window.Resources>
+# --- 3. SIDEBAR PANEL ---
+$Sidebar = New-Object System.Windows.Forms.Panel
+$Sidebar.Size = New-Object System.Drawing.Size(210, 470)
+$Sidebar.Location = New-Object System.Drawing.Point(12, 12)
+$Sidebar.BackColor = [System.Drawing.Color]::FromArgb(28, 28, 34)
+$Form.Controls.Add($Sidebar)
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="230"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="120"/>
-        </Grid.RowDefinitions>
+$TitleLbl = New-Object System.Windows.Forms.Label
+$TitleLbl.Text = "^._.^ AstroSS"
+$TitleLbl.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+$TitleLbl.ForeColor = [System.Drawing.Color]::FromArgb(192, 132, 252) # #c084fc
+$TitleLbl.Location = New-Object System.Drawing.Point(15, 15)
+$TitleLbl.Size = New-Object System.Drawing.Size(180, 30)
+$Sidebar.Controls.Add($TitleLbl)
 
-        <Border Grid.Row="0" Grid.Column="0" Background="#120e17" BorderBrush="#1f1729" BorderThickness="0,0,1,0" Padding="15">
-            <StackPanel>
-                <TextBlock Text="^._.^ AstroSS" FontSize="16" FontWeight="Bold" Foreground="#b464ff" Margin="0,0,0,25"/>
-                
-                <TextBlock Text="ACTIONS" FontSize="10" Foreground="#6b7280" FontWeight="Bold" Margin="0,0,0,8"/>
-                <Button x:Name="BtnOpenFolder" Content="Open Install Folder" Style="{StaticResource SidebarButtonStyle}"/>
-                <Button x:Name="BtnClearFiles" Content="Clear Downloaded Files" Style="{StaticResource SidebarButtonStyle}"/>
-                <Button x:Name="BtnNetLock" Content="Toggle NetLock" Style="{StaticResource SidebarButtonStyle}" Foreground="#ff6464"/>
-                
-                <TextBlock Text="CREDITS" FontSize="10" Foreground="#6b7280" FontWeight="Bold" Margin="0,30,0,5"/>
-                <TextBlock Text="Made by Astro" FontSize="11" Foreground="#d1d5db" FontWeight="Bold"/>
-                <TextBlock Text="Install path:" FontSize="10" Foreground="#6b7280" Margin="0,15,0,2"/>
-                <TextBlock Text="$ToolsDir" FontSize="9" Foreground="#9ca3af" TextWrapping="Wrap"/>
-            </StackPanel>
-        </Border>
-
-        <DockPanel Grid.Row="0" Grid.Column="1" Margin="15">
-            <Border DockPanel.Dock="Top" Background="#120e17" BorderBrush="#1f1729" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,0,12">
-                <Grid>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Ready" FontSize="18" FontWeight="Bold" Foreground="White"/>
-                        <TextBlock Text="Select a tool to launch or download it." FontSize="11" Foreground="#9ca3af" Margin="0,2,0,0"/>
-                    </StackPanel>
-                    <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="#064e3b" BorderBrush="#065f46" BorderThickness="1" CornerRadius="12" Padding="12,4">
-                        <TextBlock Text="IDLE" FontSize="11" FontWeight="Bold" Foreground="#4ade80"/>
-                    </Border>
-                </Grid>
-            </Border>
-
-            <TabControl Background="Transparent" BorderBrush="#1f1729">
-                <TabItem Header="Orbdiff" Background="#120e17" Foreground="White" Padding="14,6">
-                    <WrapPanel Margin="0,10,0,0">
-                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8" Tag="PrefetchView">
-                            <StackPanel>
-                                <TextBlock Text="PrefetchView" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
-                                <TextBlock Text="Parses prefetch, extracts file info" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8" Tag="BAMReveal">
-                            <StackPanel>
-                                <TextBlock Text="BAMReveal" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
-                                <TextBlock Text="Parses BAM forensic artifact" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8" Tag="StringsParser">
-                            <StackPanel>
-                                <TextBlock Text="StringsParser" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
-                                <TextBlock Text="Strings + YARA + signatures scanner" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8" Tag="InjGen">
-                            <StackPanel>
-                                <TextBlock Text="InjGen" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
-                                <TextBlock Text="Detects JNI/JVMTI memory injections" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Button>
-                    </WrapPanel>
-                </TabItem>
-
-                <TabItem Header="Spokwn" Background="#120e17" Foreground="White" Padding="14,6">
-                    <WrapPanel Margin="0,10,0,0">
-                        <Button Style="{StaticResource CardButtonStyle}" Width="215" Height="85" Margin="0,0,8,8">
-                            <StackPanel>
-                                <TextBlock Text="UserAssistView" FontWeight="Bold" Foreground="#b464ff" FontSize="13"/>
-                                <TextBlock Text="Parses ROT13 UserAssist execution history" FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </Button>
-                    </WrapPanel>
-                </TabItem>
-            </TabControl>
-        </DockPanel>
-
-        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="#070509" BorderBrush="#1f1729" BorderThickness="0,1,0,0" Padding="15">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="ACTIVITY CONSOLE" FontSize="9" Foreground="#6b7280" FontWeight="Bold" Margin="0,0,0,5"/>
-                <TextBox x:Name="ConsoleBox" IsReadOnly="True" Background="Transparent" Foreground="#4ade80" BorderBrush="Transparent" BorderThickness="0" FontFamily="Consolas" FontSize="11" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
-            </DockPanel>
-        </Border>
-    </Grid>
-</Window>
-"@
-
-$reader = (New-Object System.Xml.XmlNodeReader $xaml)
-$window = [Windows.Markup.XamlReader]::Load($reader)
-
-# Map Elements
-$ConsoleBox =$window.FindName("ConsoleBox")
-$BtnOpenFolder =$window.FindName("BtnOpenFolder")
-$BtnClearFiles =$window.FindName("BtnClearFiles")
-$BtnNetLock =$window.FindName("BtnNetLock")
-
-function Write-ConsoleLog($msg) {$timestamp = Get-Date -Format "HH:mm:ss"
-    $ConsoleBox.AppendText("[$timestamp]$msg`r`n")
-    $ConsoleBox.ScrollToEnd()
+function Create-SidebarButton($text, $y, $color, $action) {
+    $btn = New-Object System.Windows.Forms.Button
+    $btn.Text = $text
+    $btn.Size = New-Object System.Drawing.Size(180, 35)
+    $btn.Location = New-Object System.Drawing.Point(15, $y)
+    $btn.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 48)
+    $btn.ForeColor = $color
+    $btn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btn.FlatAppearance.BorderSize = 0
+    $btn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $btn.Add_Click($action)
+    $Sidebar.Controls.Add($btn)
 }
 
-# Bind Sidebar Actions
-$BtnOpenFolder.Add_Click({
+Create-SidebarButton "Open Install Folder" 70 ([System.Drawing.Color]::White) {
     Start-Process explorer.exe $ToolsDir
     Write-ConsoleLog "Opened install directory: $ToolsDir"
-})
+}
 
-$BtnClearFiles.Add_Click({
+Create-SidebarButton "Clear Cache" 115 ([System.Drawing.Color]::White) {
     Remove-Item "$ToolsDir\*" -Recurse -Force -ErrorAction SilentlyContinue
     Write-ConsoleLog "Cleared downloaded tool cache."
-})
+}
 
-$BtnNetLock.Add_Click({
+Create-SidebarButton "Toggle NetLock" 160 ([System.Drawing.Color]::FromArgb(255, 100, 100)) {
     try {
         $rule = Get-NetFirewallRule -DisplayName "AstroSS-Netlock" -ErrorAction SilentlyContinue
         if ($rule) {
@@ -197,14 +71,92 @@ $BtnNetLock.Add_Click({
             Write-ConsoleLog "NetLock DISABLED: Network access restored."
         } else {
             New-NetFirewallRule -DisplayName "AstroSS-Netlock" -Direction Outbound -Action Block -Profile Any | Out-Null
-            Write-ConsoleLog "NetLock ENGAGED: Outbound traffic blocked."
+            Write-ConsoleLog "NetLock ENGAGED: Outbound connection blocked."
         }
     } catch {
         Write-ConsoleLog "ERROR: Failed to update firewall rules."
     }
-})
+}
 
-# Bind Tool Cards dynamically
-$window.FindName("Orbdiff").Content | Get-Member -Name "Add_Click" -ErrorAction SilentlyContinue
+# --- 4. ACTIVITY TERMINAL CONSOLE (BOTTOM) ---
+$ConsoleBox = New-Object System.Windows.Forms.TextBox
+$ConsoleBox.Multiline = $true
+$ConsoleBox.ScrollBars = "Vertical"
+$ConsoleBox.ReadOnly = $true
+$ConsoleBox.Size = New-Object System.Drawing.Size(912, 110)
+$ConsoleBox.Location = New-Object System.Drawing.Point(12, 490)
+$ConsoleBox.BackColor = [System.Drawing.Color]::FromArgb(14, 14, 16)
+$ConsoleBox.ForeColor = [System.Drawing.Color]::FromArgb(74, 222, 128)
+$ConsoleBox.Font = New-Object System.Drawing.Font("Consolas", 9.5)
+$Form.Controls.Add($ConsoleBox)
 
-Write-ConsoleLog "Files
+function Write-ConsoleLog($msg) {
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    $ConsoleBox.AppendText("[$timestamp] $msg`r`n")
+    $ConsoleBox.SelectionStart = $ConsoleBox.Text.Length
+    $ConsoleBox.ScrollToCaret()
+}
+
+# --- 5. TABS & TOOL CARDS INTERFACE ---
+$TabControl = New-Object System.Windows.Forms.TabControl
+$TabControl.Size = New-Object System.Drawing.Size(695, 470)
+$TabControl.Location = New-Object System.Drawing.Point(230, 12)
+$TabControl.BackColor = [System.Drawing.Color]::FromArgb(22, 22, 24)
+$Form.Controls.Add($TabControl)
+
+function Create-ToolTab($tabTitle, $tools) {
+    $tab = New-Object System.Windows.Forms.TabPage
+    $tab.Text = $tabTitle
+    $tab.BackColor = [System.Drawing.Color]::FromArgb(28, 28, 34)
+    
+    $flow = New-Object System.Windows.Forms.FlowLayoutPanel
+    $flow.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $flow.AutoScroll = $true
+    $flow.Padding = New-Object System.Windows.Forms.Padding(10)
+    
+    foreach ($t in $tools) {
+        $card = New-Object System.Windows.Forms.Button
+        $card.Text = "$($t.Name)`r`n`r`n$($t.Desc)"
+        $card.Size = New-Object System.Drawing.Size(210, 90)
+        $card.TextAlign = [System.Drawing.ContentAlignment]::TopLeft
+        $card.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+        $card.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 48)
+        $card.ForeColor = [System.Drawing.Color]::White
+        $card.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $card.FlatAppearance.BorderSize = 0
+        $card.Cursor = [System.Windows.Forms.Cursors]::Hand
+        
+        $action = $t.Action
+        $card.Add_Click($action)
+        $flow.Controls.Add($card)
+    }
+    $tab.Controls.Add($flow)
+    $TabControl.TabPages.Add($tab)
+}
+
+# Structured Forensic Categories & Cards
+$Categories = @{
+    "Orbdiff" = @(
+        @{ Name = "PrefetchView"; Desc = "Parses prefetch files for exact execution history."; Action = { Write-ConsoleLog "Launching PrefetchView module..." } }
+        @{ Name = "BAMReveal"; Desc = "Background Activity Monitor record scanner."; Action = { Write-ConsoleLog "Parsing BAM registry keys..." } }
+        @{ Name = "StringsParser"; Desc = "Performs string lookups on active processes."; Action = { Write-ConsoleLog "Executing string signature analysis..." } }
+    )
+    "Spokwn" = @(
+        @{ Name = "InjGen"; Desc = "Memory injection and bypass signature parser."; Action = { Write-ConsoleLog "Scanning system memory for InjGen footprints..." } }
+        @{ Name = "UserAssist"; Desc = "ROT13 UserAssist execution trail parser."; Action = { Write-ConsoleLog "Extracting UserAssist timeline..." } }
+    )
+    "Tonynoh" = @(
+        @{ Name = "ShimCache"; Desc = "AppCompatFlags historical execution audit."; Action = { Write-ConsoleLog "Parsing ShimCache entries..." } }
+    )
+    "Praiselily" = @(
+        @{ Name = "FilelessDetector"; Desc = "Detects fileless threats via event logs."; Action = { Write-ConsoleLog "Running fileless threat scan..." } }
+    )
+}
+
+foreach ($cat in $Categories.Keys) {
+    Create-ToolTab $cat $Categories[$cat]
+}
+
+# --- 6. INITIALIZATION & LAUNCH ---
+Write-ConsoleLog "AstroSSTool initialized successfully. Ready for scan."
+[void]$Form.ShowDialog()
