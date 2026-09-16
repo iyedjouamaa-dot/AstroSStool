@@ -23,6 +23,16 @@ public class Win32 {
 }
 
 # ==============================================================================
+# COLOR DEFINITIONS (Fixed for PowerShell Parser)
+# ==============================================================================
+$cBg       = [System.Drawing.ColorTranslator]::FromHtml("#09080b")
+$cTitleBar = [System.Drawing.ColorTranslator]::FromHtml("#0f0d14")
+$cTextMain = [System.Drawing.ColorTranslator]::FromHtml("#d8b4fe")
+$cPurple   = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
+$cCardBg   = [System.Drawing.Color]::FromArgb(180, 18, 16, 23)
+$cPenColor = [System.Drawing.Color]::FromArgb(25, 168, 85, 247)
+
+# ==============================================================================
 # MAIN FORM SETUP
 # ==============================================================================
 $form = New-Object System.Windows.Forms.Form
@@ -30,7 +40,7 @@ $form.Text = "AstroSSTool // Forensic Suite"
 $form.Size = New-Object System.Drawing.Size(840, 520)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "None"
-$form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#09080b")
+$form.BackColor = $cBg
 $form.TopMost = $true
 
 $form.Add_Shown({
@@ -41,7 +51,7 @@ $form.Add_Shown({
 # Draggable Titlebar
 $titleBar = New-Object System.Windows.Forms.Panel
 $titleBar.Size = New-Object System.Drawing.Size(840, 35)
-$titleBar.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#0f0d14")
+$titleBar.BackColor = $cTitleBar
 $form.Controls.Add($titleBar)
 
 $titleBar.Add_MouseDown({
@@ -53,7 +63,7 @@ $titleBar.Add_MouseDown({
 
 $titleLabel = New-Object System.Windows.Forms.Label
 $titleLabel.Text = "✦ ASTROSSTOOL // FORENSIC SUITE  (by astrovoidmc_)"
-$titleLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d8b4fe")
+$titleLabel.ForeColor = $cTextMain
 $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 $titleLabel.Location = New-Object System.Drawing.Point(15, 8)
 $titleLabel.AutoSize = $true
@@ -77,7 +87,7 @@ $titleBar.Controls.Add($btnClose)
 $canvasPanel = New-Object System.Windows.Forms.Panel
 $canvasPanel.Size = New-Object System.Drawing.Size(840, 485)
 $canvasPanel.Location = New-Object System.Drawing.Point(0, 35)
-$canvasPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#09080b")
+$canvasPanel.BackColor = $cBg
 $form.Controls.Add($canvasPanel)
 
 # Generate Particles
@@ -95,8 +105,8 @@ for ($i = 0; $i -lt 35; $i++) {
 $canvasPanel.Add_Paint({
     $g = $_.Graphics
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#a855f7"))
-    $pen = New-Object System.Drawing.Pen([System.Drawing.Color.FromArgb(25, 168, 85, 247)], 1)
+    $brush = New-Object System.Drawing.SolidBrush($cPurple)
+    $pen = New-Object System.Drawing.Pen($cPenColor, 1)
 
     foreach ($p in $particles) {
         $p.X += $p.VX
@@ -111,11 +121,11 @@ $canvasPanel.Add_Paint({
     $pen.Dispose()
 })
 
-# Render UI Controls on top of canvas panel
+# Render UI Card on top of canvas panel
 $card = New-Object System.Windows.Forms.Panel
 $card.Size = New-Object System.Drawing.Size(380, 180)
 $card.Location = New-Object System.Drawing.Point(25, 25)
-$card.BackColor = [System.Drawing.Color.FromArgb(180, 18, 16, 23)]
+$card.BackColor = $cCardBg
 $canvasPanel.Controls.Add($card)
 
 $lblCardTitle = New-Object System.Windows.Forms.Label
