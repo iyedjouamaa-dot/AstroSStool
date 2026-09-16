@@ -1,203 +1,92 @@
-# ==============================================================================
-# AstroSSTool - Forensic Moderation Suite
-# ==============================================================================
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
+# Administrator Check
 If (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
     Exit
 }
 
-Add-Type -AssemblyName PresentationFramework
-Add-Type -AssemblyName PresentationCore
-Add-Type -AssemblyName WindowsBase
-
 $WorkDir = "$env:USERPROFILE\Downloads\AstroSSTool"
 if (!(Test-Path $WorkDir)) { New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null }
 
-[xml]$xaml = @"
-<Window 
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="AstroSSTool" Height="620" Width="920" 
-    WindowStartupLocation="CenterScreen" Background="#09080b" Foreground="White" 
-    WindowStyle="None" AllowsTransparency="True" ResizeMode="CanMinimize">
-    
-    <Window.Resources>
-        <Style TargetType="Button" x:Key="ToolCard">
-            <Setter Property="Background" Value="#121017"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#1f1b29"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="cardBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="14">
-                            <ContentPresenter/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="cardBorder" Property="Background" Value="#1a1623"/>
-                                <Setter TargetName="cardBorder" Property="BorderBrush" Value="#a855f7"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+# Form Setup
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "AstroSSTool // Forensic Suite"
+$form.Size = New-Object System.Drawing.Size(920, 620)
+$form.StartPosition = "CenterScreen"
+$form.FormBorderStyle = "None"
+$form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#09080b")
 
-        <Style TargetType="Button" x:Key="SideBtn">
-            <Setter Property="Background" Value="#121017"/>
-            <Setter Property="Foreground" Value="#d8b4fe"/>
-            <Setter Property="BorderBrush" Value="#1f1b29"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="sBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="sBorder" Property="Background" Value="#a855f7"/>
-                                <Setter TargetName="sBorder" Property="TextElement.Foreground" Value="#09080b"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
+# Custom TitleBar for Dragging & Close
+$titleBar = New-Object System.Windows.Forms.Panel
+$titleBar.Size = New-Object System.Drawing.Size(920, 35)
+$titleBar.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#0f0d14")
+$form.Controls.Add($titleBar)
 
-    <Border Background="#09080b" BorderBrush="#1f1b29" BorderThickness="1" CornerRadius="10">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="35"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="110"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+$dragging = $false
+$offset = $null
+$titleBar.Add_MouseDown({ if ($_.Button -eq [System.Windows.Forms.MouseButtons]::Left) { $global:dragging = $true; $global:offset = $_.Location } })
+$titleBar.Add_MouseUp({ $global:dragging = $false })
+$titleBar.Add_MouseMove({ if ($global:dragging) { $form.Location = New-Object System.Drawing.Point(($form.Location.X + $_.X - $global:offset.X), ($form.Location.Y + $_.Y - $global:offset.Y)) } })
 
-            <!-- CUSTOM TITLEBAR -->
-            <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="#0f0d14" Name="TitleBarGrid">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                    <TextBlock Text="✦  ASTROSSTOOL // FORENSIC SUITE" FontSize="11" FontWeight="Bold" Foreground="#a855f7"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,8,0">
-                    <Button x:Name="BtnMinimize" Content="—" Width="30" Height="22" Background="Transparent" Foreground="#888" BorderThickness="0" Cursor="Hand"/>
-                    <Button x:Name="BtnClose" Content="✕" Width="30" Height="22" Background="Transparent" Foreground="#888" BorderThickness="0" Cursor="Hand"/>
-                </StackPanel>
-            </Grid>
+# Title Text
+$titleLabel = New-Object System.Windows.Forms.Label
+$titleLabel.Text = "✦  ASTROSSTOOL // FORENSIC SUITE"
+$titleLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
+$titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$titleLabel.Location = New-Object System.Drawing.Point(12, 10)
+$titleLabel.AutoSize = $true
+$titleBar.Controls.Add($titleLabel)
 
-            <!-- SIDEBAR -->
-            <Border Grid.Row="1" Grid.Column="0" Background="#0f0d14" BorderBrush="#1f1b29" BorderThickness="0,0,1,0" Padding="12">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top">
-                        <TextBlock Text="CONTROLS" FontSize="9" FontWeight="Bold" Foreground="#555" Margin="0,0,0,8"/>
-                        <Button x:Name="BtnFolder" Content="Open Folder" Style="{StaticResource SideBtn}"/>
-                        <Button x:Name="BtnPurge" Content="Clear Cache" Style="{StaticResource SideBtn}"/>
-                        <Button x:Name="BtnNetLock" Content="Toggle NetLock" Style="{StaticResource SideBtn}" Foreground="#f87171"/>
-                    </StackPanel>
-                    <StackPanel DockPanel.Dock="Bottom">
-                        <Border Background="#121017" BorderBrush="#1f1b29" BorderThickness="1" CornerRadius="6" Padding="10">
-                            <StackPanel>
-                                <TextBlock Text="STATUS: ACTIVE" FontSize="9" FontWeight="Bold" Foreground="#4ade80"/>
-                                <TextBlock Text="AstroSSTool v1.0" FontSize="9" Foreground="#666" Margin="0,2,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </DockPanel>
-            </Border>
+# Close Button
+$btnClose = New-Object System.Windows.Forms.Button
+$btnClose.Text = "✕"
+$btnClose.Size = New-Object System.Drawing.Size(35, 25)
+$btnClose.Location = New-Object System.Drawing.Size(875, 5)
+$btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnClose.ForeColor = [System.Drawing.Color]::Gray
+$btnClose.FlatAppearance.BorderSize = 0
+$btnClose.Add_Click({ $form.Close() })
+$titleBar.Controls.Add($btnClose)
 
-            <!-- MAIN CONTENT AREA -->
-            <DockPanel Grid.Row="1" Grid.Column="1" Margin="15">
-                <TextBlock DockPanel.Dock="Top" Text="Execution &amp; Artifact Analysis" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,12"/>
-                
-                <WrapPanel>
-                    <Button Style="{StaticResource ToolCard}" Width="205" Height="90" Margin="0,0,8,8">
-                        <StackPanel>
-                            <TextBlock Text="PrefetchParser" FontWeight="Bold" Foreground="#c084fc" FontSize="12"/>
-                            <TextBlock Text="Extracts execution timestamps from prefetch files." FontSize="10" Foreground="#888" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource ToolCard}" Width="205" Height="90" Margin="0,0,8,8">
-                        <StackPanel>
-                            <TextBlock Text="BAM Monitor" FontWeight="Bold" Foreground="#c084fc" FontSize="12"/>
-                            <TextBlock Text="Background Activity Monitor telemetry scanner." FontSize="10" Foreground="#888" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Style="{StaticResource ToolCard}" Width="205" Height="90" Margin="0,0,8,8">
-                        <StackPanel>
-                            <TextBlock Text="ShimCache" FontWeight="Bold" Foreground="#c084fc" FontSize="12"/>
-                            <TextBlock Text="AppCompatFlags historical execution audit." FontSize="10" Foreground="#888" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Button>
-                </WrapPanel>
-            </DockPanel>
+# Sidebar Panel
+$sidebar = New-Object System.Windows.Forms.Panel
+$sidebar.Size = New-Object System.Drawing.Size(220, 475)
+$sidebar.Location = New-Object System.Drawing.Point(0, 35)
+$sidebar.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#0f0d14")
+$form.Controls.Add($sidebar)
 
-            <!-- TERMINAL CONSOLE -->
-            <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="#070609" BorderBrush="#1f1b29" BorderThickness="0,1,0,0" Padding="12">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="CONSOLE TELEMETRY" FontSize="9" FontWeight="Bold" Foreground="#7c3aed" Margin="0,0,0,4"/>
-                    <TextBox x:Name="ConsoleBox" IsReadOnly="True" Background="Transparent" Foreground="#4ade80" BorderBrush="Transparent" BorderThickness="0" FontFamily="Consolas" FontSize="10" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
-                </DockPanel>
-            </Border>
-        </Grid>
-    </Border>
-</Window>
-"@
+# Console Output Box
+$console = New-Object System.Windows.Forms.TextBox
+$console.Multiline = $true
+$console.ReadOnly = $true
+$console.Size = New-Object System.Drawing.Size(920, 110)
+$console.Location = New-Object System.Drawing.Point(0, 510)
+$console.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#070609")
+$console.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#4ade80")
+$console.Font = New-Object System.Drawing.Font("Consolas", 9)
+$form.Controls.Add($console)
 
-$reader = (New-Object System.Xml.XmlNodeReader $xaml)
-$window = [Windows.Markup.XamlReader]::Load($reader)
-
-# Window Controls & Dragging Binding
-$window.FindName("BtnClose").Add_Click({ $window.Close() })
-$window.FindName("BtnMinimize").Add_Click({ $window.WindowState = "Minimized" })
-$window.FindName("TitleBarGrid").Add_MouseDown({
-    if ($_.ChangedButton -eq "Left") { $window.DragMove() }
-})
-
-$ConsoleBox = $window.FindName("ConsoleBox")
-$BtnFolder = $window.FindName("BtnFolder")
-$BtnPurge = $window.FindName("BtnPurge")
-$BtnNetLock = $window.FindName("BtnNetLock")
-
-function Log($msg) {
+function Write-Log($msg) {
     $time = Get-Date -Format "HH:mm:ss"
-    $ConsoleBox.AppendText("[$time] $msg`r`n")
-    $ConsoleBox.ScrollToEnd()
+    $console.AppendText("[$time] $msg`r`n")
 }
 
-$BtnFolder.Add_Click({
+# Action Buttons
+$btnFolder = New-Object System.Windows.Forms.Button
+$btnFolder.Text = "Open Folder"
+$btnFolder.Size = New-Object System.Drawing.Size(196, 36)
+$btnFolder.Location = New-Object System.Drawing.Point(12, 12)
+$btnFolder.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+$btnFolder.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#d8b4fe")
+$btnFolder.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#121017")
+$btnFolder.FlatAppearance.BorderColor = [System.Drawing.ColorTranslator]::FromHtml("#1f1b29")
+$btnFolder.Add_Click({
     Start-Process explorer.exe $WorkDir
-    Log "Opened directory: $WorkDir"
+    Write-Log "Opened directory: $WorkDir"
 })
+$sidebar.Controls.Add($btnFolder)
 
-$BtnPurge.Add_Click({
-    Remove-Item "$WorkDir\*" -Recurse -Force -ErrorAction SilentlyContinue
-    Log "Purged local session temporary files."
-})
-
-$BtnNetLock.Add_Click({
-    try {
-        $rule = Get-NetFirewallRule -DisplayName "AstroSS-Netlock" -ErrorAction SilentlyContinue
-        if ($rule) {
-            Remove-NetFirewallRule -DisplayName "AstroSS-Netlock"
-            Log "NetLock deactivated. Network restored."
-        } else {
-            New-NetFirewallRule -DisplayName "AstroSS-Netlock" -Direction Outbound -Action Block -Profile Any | Out-Null
-            Log "NetLock engaged. Outbound connections blocked."
-        }
-    } catch {
-        Log "Error modifying firewall states."
-    }
-})
-
-Log "AstroSSTool initialized successfully. Ready."
-[void]$window.ShowDialog()
+Write-Log "AstroSSTool initialized successfully. Ready."
+[void]$form.ShowDialog()
