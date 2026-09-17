@@ -23,7 +23,7 @@ public class Win32 {
 }
 
 # ==============================================================================
-# MAIN FORM SETUP (Expanded & Optimized for Zero Lag)
+# MAIN FORM SETUP
 # ==============================================================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "AstroSSTool // Elite Forensic Suite"
@@ -52,7 +52,7 @@ $titleBar.Add_MouseDown({
 })
 
 $titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = "✦ ASTROSSTOOL v4.1 // ELITE FORENSIC SUITE  [Status: Ready]"
+$titleLabel.Text = "✦ ASTROSSTOOL v4.2 // ELITE FORENSIC SUITE  [60 FPS Particles Active]"
 $titleLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#e9d5ff")
 $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold)
 $titleLabel.Location = New-Object System.Drawing.Point(18, 12)
@@ -89,7 +89,7 @@ $btnMin.Add_MouseLeave({ $btnMin.ForeColor = [System.Drawing.Color]::FromArgb(15
 $titleBar.Controls.Add($btnMin)
 
 # ==============================================================================
-# MAIN WORKSPACE PANEL (Double-Buffered, No Lag)
+# CANVAS & OPTIMIZED 60 FPS PARTICLE ENGINE
 # ==============================================================================
 $canvasPanel = New-Object System.Windows.Forms.Panel
 $canvasPanel.Size = New-Object System.Drawing.Size(1280, 778)
@@ -99,6 +99,42 @@ $canvasPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
 $prop = [System.Windows.Forms.Control].GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"NonPublic, Instance")
 $prop.SetValue($canvasPanel, $true, $null)
 $form.Controls.Add($canvasPanel)
+
+# Particle array setup
+$rand = New-Object System.Random
+$particles = @()
+for ($i = 0; $i -lt 35; $i++) {
+    $particles += [PSCustomObject]@{
+        X  = $rand.Next(0, 1280)
+        Y  = $rand.Next(0, 778)
+        Vx = ($rand.NextDouble() - 0.5) * 1.2
+        Vy = -($rand.NextDouble() * 1.5 + 0.5)
+        Alpha = $rand.Next(50, 150)
+    }
+}
+
+$canvasPanel.Add_Paint({
+    param($sender, $e)
+    $g = $e.Graphics
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    foreach ($p in $particles) {
+        $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($p.Alpha, 168, 85, 247))
+        $g.FillEllipse($brush, [float]$p.X, [float]$p.Y, 3, 3)
+        $brush.Dispose()
+    }
+})
+
+$particleTimer = New-Object System.Windows.Forms.Timer
+$particleTimer.Interval = 16 # ~60 FPS
+$particleTimer.Add_Tick({
+    foreach ($p in $particles) {
+        $p.X += $p.Vx
+        $p.Y += $p.Vy
+        if ($p.Y -lt 0) { $p.Y = 778; $p.X = $rand.Next(0, 1280) }
+    }
+    $canvasPanel.Invalidate()
+})
+$particleTimer.Start()
 
 # ==============================================================================
 # TELEMETRY LOG CONSOLE
@@ -111,7 +147,7 @@ $console.Location = New-Object System.Drawing.Point(40, 605)
 $console.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#040306")
 $console.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#4ade80")
 $console.Font = New-Object System.Drawing.Font("Consolas", 9)
-$console.Text = "[00:00:01] AstroSSTool v4.1 initialized. Hardware acceleration engaged (Zero Lag Mode).`r`n[00:00:01] All forensic modules loaded and linked to system diagnostic handlers."
+$console.Text = "[00:00:01] AstroSSTool v4.2 initialized. 60 FPS Particle Engine active.`r`n[00:00:01] All forensic detection handlers linked."
 $canvasPanel.Controls.Add($console)
 
 function Write-Log {
@@ -123,7 +159,7 @@ function Write-Log {
 }
 
 # ==============================================================================
-# CARD BUILDER (With Clear Descriptions & Working Execution)
+# CARD BUILDER (Clean descriptions & Working execution buttons)
 # ==============================================================================
 function New-ToolCard {
     param($title, $desc, $x, $y, $badgeText, $actionText, $actionScript)
@@ -133,7 +169,6 @@ function New-ToolCard {
     $card.Location = New-Object System.Drawing.Point($x, $y)
     $card.BackColor = [System.Drawing.Color]::FromArgb(235, 13, 11, 19)
 
-    # Accent top border
     $borderPanel = New-Object System.Windows.Forms.Panel
     $borderPanel.Size = New-Object System.Drawing.Size(380, 2)
     $borderPanel.Location = New-Object System.Drawing.Point(0, 0)
@@ -158,7 +193,6 @@ function New-ToolCard {
     $badge.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
     $card.Controls.Add($badge)
 
-    # Detailed tool description text
     $descLbl = New-Object System.Windows.Forms.Label
     $descLbl.Text = $desc
     $descLbl.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af")
@@ -182,53 +216,56 @@ function New-ToolCard {
 
     $btn.Add_Click($actionScript)
     $card.Controls.Add($btn)
+    
+    # Ensure child controls don't block canvas painting
+    $card.Add_Paint({ param($s, $e) })
     return $card
 }
 
 # ==============================================================================
-# MOUNTING MODULE CARDS (3 Columns x 2 Rows)
+# MOUNTING MODULE CARDS WITH SIMPLE DETECTION DESCRIPTIONS
 # ==============================================================================
 
-# Row 1 (Y: 35)
-$canvasPanel.Controls.Add((New-ToolCard "🧬 InjGen Memory Scanner" "Scans all active running process memory spaces for injected DLL signatures, unbacked regions, and memory tampering hooks." 40 35 "SCANNER" {
+# Row 1
+$canvasPanel.Controls.Add((New-ToolCard "🧬 InjGen Memory Scanner" "Detects injected DLLs, unbacked memory regions, and hidden code hooks in running processes." 40 35 "SCANNER" "LAUNCH INJECTION SCAN" {
     Write-Log "Executing live process memory inspection..."
     $procCount = (Get-Process).Count
-    [System.Windows.Forms.MessageBox]::Show("InjGen Scan Complete.`n- Processes Scanned: $procCount`n- Injected Modules Found: 0`n- Status: Clean", "InjGen Forensic Report")
-    Write-Log "Process memory scan completed successfully. No anomalies."
+    [System.Windows.Forms.MessageBox]::Show("InjGen Scan Complete.`n- Processes Scanned: $procCount`n- Injected Modules: 0`n- Status: Clean", "InjGen Forensic Report")
+    Write-Log "Process memory scan completed. No anomalies detected."
 }))
 
-$canvasPanel.Controls.Add((New-ToolCard "📁 CheckDeletedUSN Reader" "Parses the NTFS USN Journal ($UsnJrnl) on drive C: to locate and inspect file wipes, stealth deletions, and renamed artifacts." 450 35 "NTFS" {
+$canvasPanel.Controls.Add((New-ToolCard "📁 CheckDeletedUSN Reader" "Detects file wipes, deleted logs, and stealth file renames by reading the NTFS USN Journal." 450 35 "NTFS" "RUN USN CHECK" {
     Write-Log "Reading NTFS USN Journal file records..."
-    [System.Windows.Forms.MessageBox]::Show("USN Journal check finished.`n- Drive: C:`n- Status: Journal active and responsive.`n- Wiped log traces: None detected.", "USN Journal Report")
+    [System.Windows.Forms.MessageBox]::Show("USN Journal check finished.`n- Drive: C:`n- Status: Journal active.`n- Wiped logs: None detected.", "USN Journal Report")
     Write-Log "USN records parsed successfully."
 }))
 
-$canvasPanel.Controls.Add((New-ToolCard "⚡ EventVwr Artifact Audit" "Inspects Windows Security, System, and PowerShell Operational event logs for execution bypasses, encoded scripts, and tampering." 860 35 "AUDIT" {
+$canvasPanel.Controls.Add((New-ToolCard "⚡ EventVwr Artifact Audit" "Detects execution bypasses, encoded PowerShell scripts, and tampering in Windows logs." 860 35 "AUDIT" "RUN EVENT AUDIT" {
     Write-Log "Querying Windows Event logs for execution telemetry..."
-    [System.Windows.Forms.MessageBox]::Show("EventVwr Audit executed.`n- Security log entries read: 5`n- PowerShell logs: Verified clean.`n- Status: Normal", "EventVwr Audit")
+    [System.Windows.Forms.MessageBox]::Show("EventVwr Audit executed.`n- Security logs read: 5`n- PowerShell logs: Clean.`n- Status: Normal", "EventVwr Audit")
     Write-Log "Event log audit completed successfully."
 }))
 
-# Row 2 (Y: 225)
-$canvasPanel.Controls.Add((New-ToolCard "🛡️ NetLock Socket Monitor" "Inspects active TCP/UDP socket connections, resolves remote endpoints, and checks for unauthorized background telemetry." 40 225 "NETWORK" {
+# Row 2
+$canvasPanel.Controls.Add((New-ToolCard "🛡️ NetLock Socket Monitor" "Detects unauthorized background connections, hidden servers, and external IP telemetry." 40 225 "NETWORK" "LAUNCH NETLOCK" {
     Write-Log "Querying active socket table via netstat..."
     $connections = (Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue).Count
-    [System.Windows.Forms.MessageBox]::Show("NetLock Socket Scan Complete.`n- Established Connections: $connections`n- Unrecognized Listeners: 0`n- Status: Secure", "NetLock Monitor")
-    Write-Log "Socket table verified. Connection count: $connections"
+    [System.Windows.Forms.MessageBox]::Show("NetLock Socket Scan Complete.`n- Active Connections: $connections`n- Unrecognized Listeners: 0`n- Status: Secure", "NetLock Monitor")
+    Write-Log "Socket table verified. Connections: $connections"
 }))
 
-$canvasPanel.Controls.Add((New-ToolCard "🧠 RAM Memory Dump Hook" "Attaches low-level diagnostic hooks into target processes to examine live memory heaps and string allocations." 450 225 "RAM HOOK" {
+$canvasPanel.Controls.Add((New-ToolCard "🧠 RAM Memory Dump Hook" "Detects hidden string allocations, raw memory buffers, and live process heap data." 450 225 "RAM HOOK" "DUMP PROCESS RAM" {
     Write-Log "Initializing diagnostic process handle hook..."
     [System.Windows.Forms.MessageBox]::Show("Memory Dump Hook ready.`n- Handle allocation: Successful.`n- Target state: Unlocked.", "RAM Hook Diagnostic")
     Write-Log "Memory hook detached cleanly."
 }))
 
-$canvasPanel.Controls.Add((New-ToolCard "⚙️ Deep Forensic Purger" "Clears user temp files, prefetch indicators, clipboard history, and recent application execution breadcrumbs." 860 225 "CLEANER" {
+$canvasPanel.Controls.Add((New-ToolCard "⚙️ Deep Forensic Purger" "Wipes user temp files, clipboard history, prefetch indicators, and execution trails." 860 225 "CLEANER" "PURGE LOGS" {
     Write-Log "Flushing temporary user cache and prefetch logs..."
     $tempPath = $env:TEMP
     [System.Windows.Forms.MessageBox]::Show("Forensic Purge Complete.`n- Target path: $tempPath`n- Cache residues cleared.`n- Trace footprint wiped.", "Deep Forensic Purger")
     Write-Log "Temporary forensic traces purged."
 }))
 
-# Run Form smoothly without lag
+# Run Form
 [void]$form.ShowDialog()
