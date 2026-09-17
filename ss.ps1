@@ -1,263 +1,549 @@
-$code = @'
+<#
+    AstroSSTool - Transparent Screenshare Diagnostic Companion
+    ------------------------------------------------------------
+    Read-only system inspection tool for use during voluntary screenshares.
+    It only LISTS information already visible via built-in Windows tools
+    (Task Manager, Event Viewer, Resource Monitor, netstat, etc). It does not:
+      - inject code or hook into any other process's memory
+      - modify, delete, or wipe any files, logs, caches, or prefetch data
+      - require elevation to view its results
+    Every module here is intentionally readable so anyone (including the
+    person being screenshared) can review exactly what it does before
+    running it.
+#>
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName System.Runtime.InteropServices
 
-if (-not ([System.Management.Automation.PSTypeName]'Win32').Type) {
-    Add-Type -TypeDefinition @"
+# ---------------------------------------------------------------------------
+# Win32 interop: rounded corners + borderless window dragging
+# ---------------------------------------------------------------------------
+Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 public class Win32 {
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateRoundRectRgn(int nLeftRect,int nTopRect,int nRightRect,int nBottomRect,int nWidthEllipse,int nHeightEllipse);
     [DllImport("user32.dll")]
     public static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
-    [DllImport("gdi32.dll")]
-    public static extern IntPtr CreateRoundRectRgn(int x1, int y1, int x2, int y2, int cx, int cy);
     [DllImport("user32.dll")]
-    public static extern int ReleaseCapture();
+    public static extern bool ReleaseCapture();
     [DllImport("user32.dll")]
     public static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
 }
 "@
-}
 
-$ToolDir = "$env:TEMP\AstroSSTool_Bin"
-if (!(Test-Path $ToolDir)) { New-Item -ItemType Directory -Force -Path $ToolDir | Out-Null }
+# ---------------------------------------------------------------------------
+# Theme (Elite Cyber-Violet) - all colors via ColorTranslator for safe parsing
+# ---------------------------------------------------------------------------
+$ColorBackground = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
+$ColorCard       = [System.Drawing.ColorTranslator]::FromHtml("#0e0c16")
+$ColorCardBorder = [System.Drawing.ColorTranslator]::FromHtml("#231a35")
+$ColorAccent     = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
+$ColorAccentDim  = [System.Drawing.ColorTranslator]::FromHtml("#6d28d9")
+$ColorText       = [System.Drawing.ColorTranslator]::FromHtml("#e9d5ff")
+$ColorSubText    = [System.Drawing.ColorTranslator]::FromHtml("#9d8bb0")
+$ColorConsoleBg  = [System.Drawing.ColorTranslator]::FromHtml("#040306")
+$ColorConsoleFg  = [System.Drawing.ColorTranslator]::FromHtml("#4ade80")
+$ColorBadgeBg    = [System.Drawing.ColorTranslator]::FromHtml("#1a1329")
+$ColorClose      = [System.Drawing.ColorTranslator]::FromHtml("#f87171")
 
-$cBg         = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
-$cTitleBar   = [System.Drawing.ColorTranslator]::FromHtml("#0b0a10")
-$cTextMain   = [System.Drawing.ColorTranslator]::FromHtml("#e9d5ff")
-$cPurple     = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
-$cCardBg     = [System.Drawing.ColorTranslator]::FromHtml("#0e0c16")
-$cCardBorder = [System.Drawing.ColorTranslator]::FromHtml("#2e1065")
+$FontTitle  = New-Object System.Drawing.Font("Segoe UI", 13, [System.Drawing.FontStyle]::Bold)
+$FontSub    = New-Object System.Drawing.Font("Segoe UI", 9)
+$FontCard   = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+$FontDesc   = New-Object System.Drawing.Font("Segoe UI", 8.5)
+$FontBadge  = New-Object System.Drawing.Font("Segoe UI", 7.5, [System.Drawing.FontStyle]::Bold)
+$FontBtn    = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$FontConsole= New-Object System.Drawing.Font("Consolas", 9.5)
 
+# ---------------------------------------------------------------------------
+# Main Form
+# ---------------------------------------------------------------------------
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "AstroSSTool // Advanced Forensic Suite"
-$form.Size = New-Object System.Drawing.Size(1200, 780)
+$form.Text = "AstroSSTool"
+$form.Size = New-Object System.Drawing.Size(1040, 760)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "None"
-$form.BackColor = $cBg
-$form.TopMost = $true
+$form.BackColor = $ColorBackground
+$form.DoubleBuffered = $true
 
-$form.Add_Shown({
-    $rgn = [Win32]::CreateRoundRectRgn(0, 0, $form.Width, $form.Height, 20, 20)
+$form.Add_Load({
+    $rgn = [Win32]::CreateRoundRectRgn(0, 0, $form.Width, $form.Height, 22, 22)
+    [Win32]::SetWindowRgn($form.Handle, $rgn, $true)
+})
+$form.Add_Resize({
+    $rgn = [Win32]::CreateRoundRectRgn(0, 0, $form.Width, $form.Height, 22, 22)
     [Win32]::SetWindowRgn($form.Handle, $rgn, $true)
 })
 
+# ---------------------------------------------------------------------------
+# Title bar (draggable, custom close/minimize)
+# ---------------------------------------------------------------------------
 $titleBar = New-Object System.Windows.Forms.Panel
-$titleBar.Size = New-Object System.Drawing.Size(1200, 42)
-$titleBar.BackColor = $cTitleBar
-$form.Controls.Add($titleBar)
-
-$titleBar.Add_MouseDown({
-    if ($_.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
-        [Win32]::ReleaseCapture()
-        [Win32]::SendMessage($form.Handle, 0xA1, 0x2, 0)
-    }
-})
+$titleBar.Size = New-Object System.Drawing.Size($form.Width, 42)
+$titleBar.Dock = "Top"
+$titleBar.BackColor = $ColorCard
 
 $titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = "✦ ASTROSSTOOL v3.0 // ELITE FORENSIC SUITE  [Active Session: Root]"
-$titleLabel.ForeColor = $cTextMain
-$titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$titleLabel.Location = New-Object System.Drawing.Point(18, 12)
+$titleLabel.Text = "ASTRO  SS TOOL"
+$titleLabel.Font = $FontTitle
+$titleLabel.ForeColor = $ColorText
 $titleLabel.AutoSize = $true
+$titleLabel.Location = New-Object System.Drawing.Point(18, 9)
 $titleBar.Controls.Add($titleLabel)
 
-$btnClose = New-Object System.Windows.Forms.Button
-$btnClose.Text = "✕"
-$btnClose.Size = New-Object System.Drawing.Size(45, 42)
-$btnClose.Location = New-Object System.Drawing.Point(1155, 0)
-$btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af")
-$btnClose.FlatAppearance.BorderSize = 0
-$btnClose.BackColor = [System.Drawing.Color]::Transparent
-$btnClose.Cursor = [System.Windows.Forms.Cursors]::Hand
-$btnClose.Add_Click({ $form.Close() })
-$btnClose.Add_MouseEnter({ $btnClose.ForeColor = [System.Drawing.Color]::White; $btnClose.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#dc2626") })
-$btnClose.Add_MouseLeave({ $btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af"); $btnClose.BackColor = [System.Drawing.Color]::Transparent })
-$titleBar.Controls.Add($btnClose)
+$subLabel = New-Object System.Windows.Forms.Label
+$subLabel.Text = "transparent  ·  read-only  ·  open source"
+$subLabel.Font = $FontSub
+$subLabel.ForeColor = $ColorSubText
+$subLabel.AutoSize = $true
+$subLabel.Location = New-Object System.Drawing.Point(200, 14)
+$titleBar.Controls.Add($subLabel)
 
-$btnMin = New-Object System.Windows.Forms.Button
-$btnMin.Text = "🗕"
-$btnMin.Size = New-Object System.Drawing.Size(45, 42)
-$btnMin.Location = New-Object System.Drawing.Point(1110, 0)
-$btnMin.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$btnMin.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af")
-$btnMin.FlatAppearance.BorderSize = 0
-$btnMin.BackColor = [System.Drawing.Color]::Transparent
-$btnMin.Cursor = [System.Windows.Forms.Cursors]::Hand
-$btnMin.Add_Click({ $form.WindowState = [System.Windows.Forms.FormWindowState]::Minimized })
-$btnMin.Add_MouseEnter({ $btnMin.ForeColor = [System.Drawing.Color]::White; $btnMin.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2d1b69") })
-$btnMin.Add_MouseLeave({ $btnMin.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af"); $btnMin.BackColor = [System.Drawing.Color]::Transparent })
-$titleBar.Controls.Add($btnMin)
+$closeBtn = New-Object System.Windows.Forms.Label
+$closeBtn.Text = "✕"
+$closeBtn.Font = $FontBtn
+$closeBtn.ForeColor = $ColorClose
+$closeBtn.Size = New-Object System.Drawing.Size(40, 42)
+$closeBtn.TextAlign = "MiddleCenter"
+$closeBtn.Location = New-Object System.Drawing.Point(($form.Width - 40), 0)
+$closeBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+$closeBtn.Add_Click({ $form.Close() })
+$titleBar.Controls.Add($closeBtn)
 
-$canvasPanel = New-Object System.Windows.Forms.Panel
-$canvasPanel.Size = New-Object System.Drawing.Size(1200, 738)
-$canvasPanel.Location = New-Object System.Drawing.Point(0, 42)
-$canvasPanel.BackColor = $cBg
+$minBtn = New-Object System.Windows.Forms.Label
+$minBtn.Text = "—"
+$minBtn.Font = $FontBtn
+$minBtn.ForeColor = $ColorSubText
+$minBtn.Size = New-Object System.Drawing.Size(40, 42)
+$minBtn.TextAlign = "MiddleCenter"
+$minBtn.Location = New-Object System.Drawing.Point(($form.Width - 80), 0)
+$minBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+$minBtn.Add_Click({ $form.WindowState = [System.Windows.Forms.FormWindowState]::Minimized })
+$titleBar.Controls.Add($minBtn)
 
-$prop = [System.Windows.Forms.Control].GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"NonPublic, Instance")
-$prop.SetValue($canvasPanel, $true, $null)
-$form.Controls.Add($canvasPanel)
+$dragHandler = {
+    if ($_.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
+        [Win32]::ReleaseCapture() | Out-Null
+        [Win32]::SendMessage($form.Handle, 0xA1, 0x2, 0) | Out-Null
+    }
+}
+$titleBar.Add_MouseDown($dragHandler)
+$titleLabel.Add_MouseDown($dragHandler)
+$subLabel.Add_MouseDown($dragHandler)
 
-$particles = @()
-for ($i = 0; $i -lt 55; $i++) {
-    $particles += [PSCustomObject]@{
-        X  = Get-Random -Minimum 10 -Maximum 1190
-        Y  = Get-Random -Minimum 10 -Maximum 720
-        VX = (Get-Random -Minimum -15 -Maximum 15) / 10.0
-        VY = (Get-Random -Minimum -15 -Maximum 15) / 10.0
-        R  = Get-Random -Minimum 1 -Maximum 3
+$form.Controls.Add($titleBar)
+
+# ---------------------------------------------------------------------------
+# Hero panel with floating particle animation
+# ---------------------------------------------------------------------------
+$heroPanel = New-Object System.Windows.Forms.Panel
+$heroPanel.Size = New-Object System.Drawing.Size($form.Width, 90)
+$heroPanel.Dock = "Top"
+$heroPanel.BackColor = $ColorBackground
+$heroPanel.GetType().GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"NonPublic,Instance").SetValue($heroPanel, $true, $null)
+
+$heroLabel = New-Object System.Windows.Forms.Label
+$heroLabel.Text = "Screenshare Diagnostic Companion"
+$heroLabel.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+$heroLabel.ForeColor = $ColorText
+$heroLabel.AutoSize = $true
+$heroLabel.BackColor = [System.Drawing.Color]::Transparent
+$heroLabel.Location = New-Object System.Drawing.Point(20, 14)
+$heroPanel.Controls.Add($heroLabel)
+
+$heroSub = New-Object System.Windows.Forms.Label
+$heroSub.Text = "Every module below only reads and reports information. Nothing is modified, injected, or deleted."
+$heroSub.Font = $FontSub
+$heroSub.ForeColor = $ColorSubText
+$heroSub.AutoSize = $true
+$heroSub.BackColor = [System.Drawing.Color]::Transparent
+$heroSub.Location = New-Object System.Drawing.Point(20, 44)
+$heroPanel.Controls.Add($heroSub)
+
+$script:Particles = @()
+$rand = New-Object System.Random
+for ($i = 0; $i -lt 36; $i++) {
+    $script:Particles += [PSCustomObject]@{
+        X  = $rand.Next(0, 1000)
+        Y  = $rand.Next(0, 90)
+        VX = (($rand.Next(-10, 10)) / 10.0)
+        VY = (($rand.Next(-6, 6)) / 10.0)
+        R  = $rand.Next(1, 3)
     }
 }
 
-$canvasPanel.Add_Paint({
-    param($sender, $e)
+$heroPanel.Add_Paint({
+    param($s, $e)
     $g = $e.Graphics
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    
-    $particleColor = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
-    $brush = New-Object System.Drawing.SolidBrush($particleColor)
-
-    foreach ($p in $particles) {
-        $p.X += $p.VX
-        $p.Y += $p.VY
-
-        if ($p.X -lt 0 -or $p.X -gt 1200) { $p.VX *= -1 }
-        if ($p.Y -lt 0 -or $p.Y -gt 738) { $p.VY *= -1 }
-
+    $brush = New-Object System.Drawing.SolidBrush($ColorAccent)
+    foreach ($p in $script:Particles) {
         $g.FillEllipse($brush, [float]$p.X, [float]$p.Y, [float]($p.R * 2), [float]($p.R * 2))
     }
     $brush.Dispose()
 })
 
-$console = New-Object System.Windows.Forms.TextBox
-$console.Multiline = $true
-$console.ReadOnly = $true
-$console.Size = New-Object System.Drawing.Size(1140, 125)
-$console.Location = New-Object System.Drawing.Point(30, 580)
-$console.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#040306")
-$console.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#4ade80")
-$console.Font = New-Object System.Drawing.Font("Consolas", 9)
-$console.Text = "[00:00:01] AstroSSTool v3.0 core initialized successfully.`r`n[00:00:01] Hardware acceleration active. Monitoring subsystems..."
-$canvasPanel.Controls.Add($console)
+$particleTimer = New-Object System.Windows.Forms.Timer
+$particleTimer.Interval = 16
+$particleTimer.Add_Tick({
+    foreach ($p in $script:Particles) {
+        $p.X += $p.VX
+        $p.Y += $p.VY
+        if ($p.X -le 0 -or $p.X -ge $heroPanel.Width)  { $p.VX = -$p.VX }
+        if ($p.Y -le 0 -or $p.Y -ge $heroPanel.Height) { $p.VY = -$p.VY }
+    }
+    $heroPanel.Invalidate()
+})
+$particleTimer.Start()
+
+$form.Controls.Add($heroPanel)
+
+# ---------------------------------------------------------------------------
+# Console / log output (bottom terminal)
+# ---------------------------------------------------------------------------
+$consolePanel = New-Object System.Windows.Forms.Panel
+$consolePanel.Size = New-Object System.Drawing.Size($form.Width, 220)
+$consolePanel.Dock = "Bottom"
+$consolePanel.BackColor = $ColorCard
+$consolePanel.Padding = New-Object System.Windows.Forms.Padding(14)
+
+$consoleLabel = New-Object System.Windows.Forms.Label
+$consoleLabel.Text = "OUTPUT LOG"
+$consoleLabel.Font = $FontBadge
+$consoleLabel.ForeColor = $ColorSubText
+$consoleLabel.AutoSize = $true
+$consoleLabel.Location = New-Object System.Drawing.Point(14, 4)
+$consolePanel.Controls.Add($consoleLabel)
+
+$script:OutputBox = New-Object System.Windows.Forms.TextBox
+$script:OutputBox.Multiline = $true
+$script:OutputBox.ReadOnly = $true
+$script:OutputBox.ScrollBars = "Vertical"
+$script:OutputBox.BackColor = $ColorConsoleBg
+$script:OutputBox.ForeColor = $ColorConsoleFg
+$script:OutputBox.Font = $FontConsole
+$script:OutputBox.BorderStyle = "FixedSingle"
+$script:OutputBox.Location = New-Object System.Drawing.Point(14, 26)
+$script:OutputBox.Size = New-Object System.Drawing.Size(($form.Width - 28), 180)
+$script:OutputBox.Anchor = "Top,Bottom,Left,Right"
+$consolePanel.Controls.Add($script:OutputBox)
+
+$form.Controls.Add($consolePanel)
 
 function Write-Log {
-    param($msg)
+    param([string]$Message, [string]$Level = "Info")
     $timestamp = Get-Date -Format "HH:mm:ss"
-    $console.AppendText("`r`n[$timestamp] $msg")
-    $console.SelectionStart = $console.Text.Length
-    $console.ScrollToCaret()
+    $prefix = switch ($Level) {
+        "Warn"  { "[WARN]" }
+        "Error" { "[ERR ]" }
+        default { "[INFO]" }
+    }
+    $line = "[$timestamp] $prefix $Message`r`n"
+    $script:OutputBox.AppendText($line)
+    $script:OutputBox.SelectionStart = $script:OutputBox.Text.Length
+    $script:OutputBox.ScrollToCaret()
 }
 
+# ---------------------------------------------------------------------------
+# Diagnostic modules (all read-only)
+# ---------------------------------------------------------------------------
+function Invoke-ProcessScan {
+    Write-Log "Scanning running processes for signature status..."
+    try {
+        $procs = Get-Process | Where-Object { $_.Path } | Sort-Object ProcessName
+        $flagged = 0
+        foreach ($p in $procs) {
+            try {
+                $sig = Get-AuthenticodeSignature -FilePath $p.Path -ErrorAction Stop
+                $status = $sig.Status
+            } catch {
+                $status = "Unreadable"
+            }
+            if ($status -ne "Valid") {
+                $flagged++
+                Write-Log ("  [!] {0} (PID {1}) -> signature: {2}" -f $p.ProcessName, $p.Id, $status) "Warn"
+            }
+        }
+        Write-Log ("Process scan complete. {0} processes checked, {1} without a valid signature." -f $procs.Count, $flagged)
+    } catch {
+        Write-Log "Process scan failed: $($_.Exception.Message)" "Error"
+    }
+}
+
+function Invoke-StartupScan {
+    Write-Log "Reading startup entries and scheduled tasks..."
+    try {
+        $startup = Get-CimInstance Win32_StartupCommand -ErrorAction Stop
+        foreach ($s in $startup) {
+            Write-Log ("  [Startup] {0}  ->  {1}" -f $s.Name, $s.Command)
+        }
+        Write-Log ("Startup entries listed: {0}" -f (@($startup)).Count)
+    } catch {
+        Write-Log "  Could not read startup commands: $($_.Exception.Message)" "Warn"
+    }
+    try {
+        $tasks = Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.State -ne "Disabled" }
+        foreach ($t in $tasks) {
+            Write-Log ("  [Task] {0}{1}" -f $t.TaskPath, $t.TaskName)
+        }
+        Write-Log ("Active scheduled tasks listed: {0}" -f (@($tasks)).Count)
+    } catch {
+        Write-Log "  Could not read scheduled tasks: $($_.Exception.Message)" "Warn"
+    }
+}
+
+function Invoke-RecentFilesScan {
+    Write-Log "Reading recent file activity..."
+    try {
+        $recentPath = [Environment]::GetFolderPath("Recent")
+        if (Test-Path $recentPath) {
+            $files = Get-ChildItem $recentPath -ErrorAction SilentlyContinue |
+                     Sort-Object LastWriteTime -Descending | Select-Object -First 25
+            foreach ($f in $files) {
+                Write-Log ("  {0}   ({1})" -f $f.Name, $f.LastWriteTime)
+            }
+            Write-Log ("Recent items listed: {0}" -f (@($files)).Count)
+        } else {
+            Write-Log "  Recent folder not found." "Warn"
+        }
+    } catch {
+        Write-Log "Recent files scan failed: $($_.Exception.Message)" "Error"
+    }
+}
+
+function Invoke-NetworkScan {
+    Write-Log "Inspecting active TCP connections..."
+    try {
+        $conns = Get-NetTCPConnection -ErrorAction Stop |
+                 Where-Object { $_.State -eq "Established" -or $_.State -eq "Listen" }
+        foreach ($c in $conns) {
+            $procName = try { (Get-Process -Id $c.OwningProcess -ErrorAction Stop).ProcessName } catch { "N/A" }
+            Write-Log ("  [{0}] {1}:{2} -> {3}:{4}  ({5})" -f $c.State, $c.LocalAddress, $c.LocalPort, $c.RemoteAddress, $c.RemotePort, $procName)
+        }
+        Write-Log ("Network scan complete. {0} connections listed." -f (@($conns)).Count)
+    } catch {
+        Write-Log "  Get-NetTCPConnection unavailable, falling back to netstat..." "Warn"
+        try {
+            $netstat = netstat -ano | Select-String "ESTABLISHED|LISTENING"
+            foreach ($line in $netstat) { Write-Log "  $line" }
+        } catch {
+            Write-Log "Network scan failed: $($_.Exception.Message)" "Error"
+        }
+    }
+}
+
+function Invoke-EventLogAudit {
+    Write-Log "Auditing recent Security/PowerShell event log entries..."
+    try {
+        $events = Get-WinEvent -FilterHashtable @{ LogName = "Windows PowerShell"; Id = 400,600 } -MaxEvents 20 -ErrorAction Stop
+        foreach ($ev in $events) {
+            Write-Log ("  [{0}] {1} - {2}" -f $ev.TimeCreated, $ev.Id, ($ev.Message -split "`n")[0])
+        }
+        Write-Log ("PowerShell log entries listed: {0}" -f (@($events)).Count)
+    } catch {
+        Write-Log "  No recent PowerShell log entries found or access denied." "Warn"
+    }
+}
+
+function Invoke-ExportReport {
+    try {
+        $desktop = [Environment]::GetFolderPath("Desktop")
+        $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+        $file = Join-Path $desktop "AstroSSTool_Report_$stamp.txt"
+        $notes = $script:NotesBox.Text
+        $content = @"
+AstroSSTool - Screenshare Session Report
+Generated: $(Get-Date)
+
+--- NOTES ---
+$notes
+
+--- FULL OUTPUT LOG ---
+$($script:OutputBox.Text)
+"@
+        Set-Content -Path $file -Value $content -Encoding UTF8
+        Write-Log "Report exported to: $file"
+    } catch {
+        Write-Log "Export failed: $($_.Exception.Message)" "Error"
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Card grid
+# ---------------------------------------------------------------------------
+$gridPanel = New-Object System.Windows.Forms.Panel
+$gridPanel.Dock = "Fill"
+$gridPanel.BackColor = $ColorBackground
+$gridPanel.AutoScroll = $true
+$gridPanel.Padding = New-Object System.Windows.Forms.Padding(20)
+$form.Controls.Add($gridPanel)
+$gridPanel.BringToFront()
+
 function New-ToolCard {
-    param($title, $desc, $x, $y, $badgeText, $actionText, $scriptBlock)
-    
+    param(
+        [string]$Icon,
+        [string]$Title,
+        [string]$Desc,
+        [string]$Badge,
+        [string]$ButtonText,
+        [scriptblock]$OnClick,
+        [int]$X,
+        [int]$Y,
+        [int]$W = 460,
+        [int]$H = 150
+    )
+
     $card = New-Object System.Windows.Forms.Panel
-    $card.Size = New-Object System.Drawing.Size(364, 165)
-    $card.Location = New-Object System.Drawing.Point($x, $y)
-    $card.BackColor = $cCardBg
+    $card.Size = New-Object System.Drawing.Size($W, $H)
+    $card.Location = New-Object System.Drawing.Point($X, $Y)
+    $card.BackColor = $ColorCard
 
-    $borderPanel = New-Object System.Windows.Forms.Panel
-    $borderPanel.Size = New-Object System.Drawing.Size(364, 2)
-    $borderPanel.Location = New-Object System.Drawing.Point(0, 0)
-    $borderPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7c3aed")
-    $card.Controls.Add($borderPanel)
+    $border = {
+        param($s, $e)
+        $pen = New-Object System.Drawing.Pen($ColorCardBorder, 1)
+        $e.Graphics.DrawRectangle($pen, 0, 0, ($card.Width - 1), ($card.Height - 1))
+        $pen.Dispose()
+    }
+    $card.Add_Paint($border)
 
-    $lbl = New-Object System.Windows.Forms.Label
-    $lbl.Text = $title
-    $lbl.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#f3e8ff")
-    $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 10.5, [System.Drawing.FontStyle]::Bold)
-    $lbl.Location = New-Object System.Drawing.Point(15, 14)
-    $lbl.AutoSize = $true
-    $card.Controls.Add($lbl)
+    $lblTitle = New-Object System.Windows.Forms.Label
+    $lblTitle.Text = "$Icon  $Title"
+    $lblTitle.Font = $FontCard
+    $lblTitle.ForeColor = $ColorText
+    $lblTitle.AutoSize = $true
+    $lblTitle.Location = New-Object System.Drawing.Point(16, 14)
+    $card.Controls.Add($lblTitle)
 
-    $badge = New-Object System.Windows.Forms.Label
-    $badge.Text = $badgeText
-    $badge.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#c084fc")
-    $badge.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2e1065")
-    $badge.Font = New-Object System.Drawing.Font("Segoe UI", 7.5, [System.Drawing.FontStyle]::Bold)
-    $badge.Location = New-Object System.Drawing.Point(280, 16)
-    $badge.Size = New-Object System.Drawing.Size(70, 20)
-    $badge.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
-    $card.Controls.Add($badge)
+    $lblBadge = New-Object System.Windows.Forms.Label
+    $lblBadge.Text = "  $Badge  "
+    $lblBadge.Font = $FontBadge
+    $lblBadge.ForeColor = $ColorAccent
+    $lblBadge.BackColor = $ColorBadgeBg
+    $lblBadge.AutoSize = $true
+    $lblBadge.Location = New-Object System.Drawing.Point(($W - 100), 16)
+    $card.Controls.Add($lblBadge)
 
-    $descLbl = New-Object System.Windows.Forms.Label
-    $descLbl.Text = $desc
-    $descLbl.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af")
-    $descLbl.Font = New-Object System.Drawing.Font("Segoe UI", 8.5)
-    $descLbl.Location = New-Object System.Drawing.Point(15, 45)
-    $descLbl.Size = New-Object System.Drawing.Size(335, 42)
-    $card.Controls.Add($descLbl)
+    $lblDesc = New-Object System.Windows.Forms.Label
+    $lblDesc.Text = $Desc
+    $lblDesc.Font = $FontDesc
+    $lblDesc.ForeColor = $ColorSubText
+    $lblDesc.Size = New-Object System.Drawing.Size(($W - 32), 50)
+    $lblDesc.Location = New-Object System.Drawing.Point(16, 44)
+    $card.Controls.Add($lblDesc)
 
     $btn = New-Object System.Windows.Forms.Button
-    $btn.Text = $actionText
-    $btn.Size = New-Object System.Drawing.Size(334, 36)
-    $btn.Location = New-Object System.Drawing.Point(15, 108)
-    $btn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btn.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#7c3aed")
-    $btn.ForeColor = [System.Drawing.Color]::White
-    $btn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-    $btn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $btn.Text = $ButtonText
+    $btn.Font = $FontBtn
+    $btn.ForeColor = $ColorText
+    $btn.BackColor = $ColorAccentDim
+    $btn.FlatStyle = "Flat"
     $btn.FlatAppearance.BorderSize = 0
-    $btn.FlatAppearance.MouseOverBackColor = [System.Drawing.ColorTranslator]::FromHtml("#9333ea")
-    $btn.FlatAppearance.MouseDownBackColor = [System.Drawing.ColorTranslator]::FromHtml("#6d28d9")
-
-    $btn.Add_Click($scriptBlock)
+    $btn.Size = New-Object System.Drawing.Size(($W - 32), 32)
+    $btn.Location = New-Object System.Drawing.Point(16, ($H - 44))
+    $btn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $btn.Add_Click($OnClick)
     $card.Controls.Add($btn)
+
+    $gridPanel.Controls.Add($card)
     return $card
 }
 
-$canvasPanel.Controls.Add((New-ToolCard "🧬 InjGen Memory Scanner" "Performs deep heuristic scanning across active process handles for hidden DLL injections." 30 30 "ACTIVE SCAN" {
-    Write-Log "Initiated InjGen heuristic scan on active system memory..."
-    [System.Windows.Forms.MessageBox]::Show("InjGen Scan Complete.`n- Inspected active processes: 142`n- Signature Anomalies: None", "AstroSSTool - InjGen")
-    Write-Log "InjGen scan finished cleanly. No injected vectors located."
-}))
+$colW = 460
+$gap  = 20
+$col1X = 0
+$col2X = $colW + $gap
+$rowH = 150
+$rowGap = 18
 
-$canvasPanel.Controls.Add((New-ToolCard "📁 CheckDeletedUSN Reader" "Parses the NTFS USN Journal to uncover wiped or stealth-deleted file artifacts." 418 30 "PARSE USN" {
-    Write-Log "Reading Master File Table (MFT) & USN journal sectors..."
-    [System.Windows.Forms.MessageBox]::Show("USN Journal parsed successfully.`n- Target Drive: C:`n- Deleted entries reviewed: 1,204`n- Status: Clean", "AstroSSTool - USN")
-    Write-Log "USN journal extraction completed with zero flagged deletions."
-}))
+New-ToolCard -Icon "🧩" -Title "Process Integrity Viewer" `
+    -Desc "Lists running processes and flags any whose executable does not carry a valid digital signature." `
+    -Badge "READ-ONLY" -ButtonText "Run Scan" -OnClick { Invoke-ProcessScan } `
+    -X $col1X -Y 0 -W $colW -H $rowH
 
-$canvasPanel.Controls.Add((New-ToolCard "⚡ EventVwr Artifact Audit" "Audits Windows Event Logs and PowerShell transcript traces for execution flags." 806 30 "RUN AUDIT" {
-    Write-Log "Auditing security and PowerShell operational event logs..."
-    [System.Windows.Forms.MessageBox]::Show("EventVwr Audit executed.`n- Security logs verified.`n- Script block logs clean.", "AstroSSTool - EventVwr")
-    Write-Log "Event log audit completed successfully."
-}))
+New-ToolCard -Icon "🗂️" -Title "Startup & Task Auditor" `
+    -Desc "Reads registry startup entries and active Scheduled Tasks for review." `
+    -Badge "READ-ONLY" -ButtonText "Run Audit" -OnClick { Invoke-StartupScan } `
+    -X $col2X -Y 0 -W $colW -H $rowH
 
-$canvasPanel.Controls.Add((New-ToolCard "🛡️ NetLock Socket Monitor" "Inspects active network sockets, endpoints, and established telemetry streams." 30 210 "CHECK SOCKETS" {
-    Write-Log "Querying active TCP/UDP network connections..."
-    [System.Windows.Forms.MessageBox]::Show("NetLock active socket analysis complete.`n- Active Connections: 18`n- Suspicious Endpoints: 0", "AstroSSTool - NetLock")
-    Write-Log "Socket table verified normal."
-}))
+New-ToolCard -Icon "🕘" -Title "Recent File Activity" `
+    -Desc "Shows the most recently accessed files from the Windows Recent Items folder." `
+    -Badge "READ-ONLY" -ButtonText "View Recent" -OnClick { Invoke-RecentFilesScan } `
+    -X $col1X -Y ($rowH + $rowGap) -W $colW -H $rowH
 
-$canvasPanel.Controls.Add((New-ToolCard "🧠 RAM Memory Dump Hook" "Attaches low-level diagnostics hooks into target client memory blocks." 418 210 "DUMP PROCESS" {
-    Write-Log "Allocating diagnostic hooks into target runtime handles..."
-    [System.Windows.Forms.MessageBox]::Show("Memory Dump Hook initialized.`n- Target handle locked.`n- RAM Integrity: Verified", "AstroSSTool - Memory")
-    Write-Log "Memory process hook successfully detached and cleared."
-}))
+New-ToolCard -Icon "🌐" -Title "Network Connection Monitor" `
+    -Desc "Lists active TCP connections and the process that owns each one." `
+    -Badge "READ-ONLY" -ButtonText "Scan Connections" -OnClick { Invoke-NetworkScan } `
+    -X $col2X -Y ($rowH + $rowGap) -W $colW -H $rowH
 
-$canvasPanel.Controls.Add((New-ToolCard "⚙️ Deep Forensic Purger" "Flushes residual temporary caches, prefetch states, and forensic breadcrumbs." 806 210 "PURGE TRACES" {
-    Write-Log "Executing deep forensic wipe on temporary user artifacts..."
-    [System.Windows.Forms.MessageBox]::Show("Trace cleaner routine finished.`n- Temp cache cleared.`n- Clipboard history wiped.", "AstroSSTool - Purge")
-    Write-Log "System cache successfully purged."
-}))
+New-ToolCard -Icon "📜" -Title "PowerShell Log Audit" `
+    -Desc "Reads recent PowerShell event log entries (module/script execution records)." `
+    -Badge "READ-ONLY" -ButtonText "Read Logs" -OnClick { Invoke-EventLogAudit } `
+    -X $col1X -Y ((($rowH + $rowGap) * 2)) -W $colW -H $rowH
 
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 16
-$timer.Add_Tick({ $canvasPanel.Invalidate() })
-$timer.Start()
+# --- Notes & Export card (wider, with embedded textbox) ---
+$notesY = (($rowH + $rowGap) * 2)
+$notesCard = New-Object System.Windows.Forms.Panel
+$notesCard.Size = New-Object System.Drawing.Size($colW, ($rowH + 90))
+$notesCard.Location = New-Object System.Drawing.Point($col2X, $notesY)
+$notesCard.BackColor = $ColorCard
+$notesCard.Add_Paint({
+    param($s, $e)
+    $pen = New-Object System.Drawing.Pen($ColorCardBorder, 1)
+    $e.Graphics.DrawRectangle($pen, 0, 0, ($notesCard.Width - 1), ($notesCard.Height - 1))
+    $pen.Dispose()
+})
 
-$form.Add_FormClosed({ $timer.Stop() })
+$notesTitle = New-Object System.Windows.Forms.Label
+$notesTitle.Text = "📝  Session Notes & Export"
+$notesTitle.Font = $FontCard
+$notesTitle.ForeColor = $ColorText
+$notesTitle.AutoSize = $true
+$notesTitle.Location = New-Object System.Drawing.Point(16, 14)
+$notesCard.Controls.Add($notesTitle)
 
-try {
-    [void]$form.ShowDialog()
-}
-catch {
-    [System.Windows.Forms.MessageBox]::Show("An error occurred during execution:`n$_", "AstroSSTool Fatal Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-}
-'@
+$notesDesc = New-Object System.Windows.Forms.Label
+$notesDesc.Text = "Both people on the call can see these notes. Export saves the notes plus the full output log as a text file on the Desktop."
+$notesDesc.Font = $FontDesc
+$notesDesc.ForeColor = $ColorSubText
+$notesDesc.Size = New-Object System.Drawing.Size(($colW - 32), 34)
+$notesDesc.Location = New-Object System.Drawing.Point(16, 42)
+$notesCard.Controls.Add($notesDesc)
 
-$code | Set-Content -Path "$PSScriptRoot\ss.ps1" -Force
-& "$PSScriptRoot\ss.ps1"
+$script:NotesBox = New-Object System.Windows.Forms.TextBox
+$script:NotesBox.Multiline = $true
+$script:NotesBox.BackColor = $ColorConsoleBg
+$script:NotesBox.ForeColor = $ColorText
+$script:NotesBox.Font = $FontDesc
+$script:NotesBox.BorderStyle = "FixedSingle"
+$script:NotesBox.Location = New-Object System.Drawing.Point(16, 80)
+$script:NotesBox.Size = New-Object System.Drawing.Size(($colW - 32), 100)
+$notesCard.Controls.Add($script:NotesBox)
+
+$exportBtn = New-Object System.Windows.Forms.Button
+$exportBtn.Text = "Export Report to Desktop"
+$exportBtn.Font = $FontBtn
+$exportBtn.ForeColor = $ColorText
+$exportBtn.BackColor = $ColorAccentDim
+$exportBtn.FlatStyle = "Flat"
+$exportBtn.FlatAppearance.BorderSize = 0
+$exportBtn.Size = New-Object System.Drawing.Size(($colW - 32), 32)
+$exportBtn.Location = New-Object System.Drawing.Point(16, 188)
+$exportBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+$exportBtn.Add_Click({ Invoke-ExportReport })
+$notesCard.Controls.Add($exportBtn)
+
+$gridPanel.Controls.Add($notesCard)
+
+# ---------------------------------------------------------------------------
+# Startup log message
+# ---------------------------------------------------------------------------
+Write-Log "AstroSSTool ready. All modules are read-only: nothing is modified, injected, or deleted."
+Write-Log "Source is fully visible in this script - review any module before running it."
+
+# ---------------------------------------------------------------------------
+# Run
+# ---------------------------------------------------------------------------
+[System.Windows.Forms.Application]::EnableVisualStyles()
+$form.Add_FormClosed({ $particleTimer.Stop(); $particleTimer.Dispose() })
+[void]$form.ShowDialog()
