@@ -1,60 +1,46 @@
-$t = $tool
-$actionBtn.Add_Click({
-    Write-ConsoleLog "Selected tool: $($t.Name) [Type: $($t.Type)]"
-    $statusTitle.Text = $t.Name
-    $statusSub.Text = $t.Desc
-    $statusBadge.Text = $t.Type
+Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName PresentationCore
+Add-Type -AssemblyName WindowsBase
+Add-Type -AssemblyName System.Xaml
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
-    # Ensure install directory exists
-    if (!(Test-Path $installDir)) {
-        New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-    }
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class User32 {
+    [DllImport("user32.dll")]
+    public static extern IntPtr SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+}
+"@
 
-    if ($t.Type -eq "GitHub" -or $t.Type -eq "Web" -or $t.Type -eq "Link") {
-        # Check if the URL points directly to a zip file or executable
-        if ($t.URL -match "\.zip$") {
-            Write-ConsoleLog "Downloading zip archive for $($t.Name)..."
-            $fileName = [System.IO.Path]::GetFileName($t.URL)
-            $destinationZip = Join-Path $installDir $fileName
-            $extractPath = Join-Path $installDir ($t.Name -replace '[^\w]', '_')
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-            try {
-                # Download file
-                Invoke-WebRequest -Uri $t.URL -OutFile $destinationZip -UseBasicParsing
-                Write-ConsoleLog "Download complete. Extracting to $extractPath..."
+$installDir = "$env:USERPROFILE\Downloads\CheesySSTool"
 
-                # Extract zip
-                if (!(Test-Path $extractPath)) { New-Item -ItemType Directory -Force -Path $extractPath | Out-Null }
-                Expand-Archive -Path $destinationZip -DestinationPath $extractPath -Force
-                
-                Write-ConsoleLog "Successfully extracted $($t.Name)."
-                Start-Process "explorer.exe" $extractPath
-            } catch {
-                Write-ConsoleLog "Error downloading/extracting $($t.Name): $_"
-            }
-        } elseif ($t.URL -match "\.exe$") {
-            Write-ConsoleLog "Downloading executable for $($t.Name)..."
-            $fileName = [System.IO.Path]::GetFileName($t.URL)
-            $destinationExe = Join-Path $installDir $fileName
-
-            try {
-                Invoke-WebRequest -Uri $t.URL -OutFile $destinationExe -UseBasicParsing
-                Write-ConsoleLog "Download complete. Launching $($t.Name)..."
-                Start-Process $destinationExe
-            } catch {
-                Write-ConsoleLog "Error downloading/running $($t.Name): $_"
-            }
-        } else {
-            Write-ConsoleLog "Opening URL for $($t.Name): $($t.URL)"
-            Start-Process $t.URL
-        }
-    } elseif ($t.Type -eq "Cmd") {
-        Write-ConsoleLog "Executing inline command for $($t.Name)..."
-        try {
-            Invoke-Expression $t.Command
-            Write-ConsoleLog "Successfully executed command for $($t.Name)."
-        } catch {
-            Write-ConsoleLog "Error executing command: $_"
-        }
-    }
-})
+# TOOL DATA
+$ToolData = @(
+    @{ Name="PrefetchView";       Desc="Parses prefetch, extracts file info";          Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/PrefetchView/releases/latest" },
+    @{ Name="BAMReveal";              Desc="Parses BAM forensic artefact";                 Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/BAMReveal/releases/latest" },
+    @{ Name="StringsParser";          Desc="Strings + YARA + signatures scanner";          Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/StringsParser/releases/latest" },
+    @{ Name="Fileless";               Desc="Detects fileless via eventlog + memdump";      Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/Fileless/releases/latest" },
+    @{ Name="DPS-Analyzer";           Desc="Analyzes DPS memory";                          Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/DPS-Analyzer/releases/latest" },
+    @{ Name="UserAssistView";         Desc="Parses UserAssist registry artifact";          Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/UserAssistView/releases/latest" },
+    @{ Name="JournalParser";          Desc="Parses NTFS USNJournal entries";               Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/JournalParser/releases/latest" },
+    @{ Name="InjGen";                 Desc="Detects JNI/JVMTI memory injections";          Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/InjGen/releases/latest" },
+    @{ Name="USBDetector";            Desc="Detects USB device history";                   Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/USBDetector/releases/latest" },
+    @{ Name="PFTrace";                Desc="Rundll32/Regsvr32 prefetch analysis";          Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/PFTrace/releases/latest" },
+    @{ Name="CheckDeletedUSN";        Desc="Compares USN timestamp vs boot time";          Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/CheckDeletedUSN/releases/latest" },
+    @{ Name="JARParser";              Desc="Parses JAR prefetch, DcomLaunch strings";      Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/JARParser/releases/latest" },
+    @{ Name="BAM-parser";             Desc="Parses BAM entries for execution history";     Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/BAM-parser/releases/latest" },
+    @{ Name="PathsParser";            Desc="Extracts and analyzes executable paths";       Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/PathsParser/releases/latest" },
+    @{ Name="JournalTrace";           Desc="Traces file activity via USN journal";         Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/JournalTrace/releases/latest" },
+    @{ Name="KernelLiveDumpTool";     Desc="Captures live kernel memory dump";             Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/KernelLiveDumpTool/releases/latest" },
+    @{ Name="BamDeletedKeys";         Desc="Finds deleted BAM registry keys";              Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/BamDeletedKeys/releases/latest" },
+    @{ Name="Espouken Tool";          Desc="All-in-one SS forensics toolkit";              Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/Tool/releases/latest" },
+    @{ Name="pcasvc-executed";        Desc="Extracts PCA service execution records";       Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/pcasvc-executed/releases/latest" },
+    @{ Name="process-parser";         Desc="Parses process execution artefacts";           Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/process-parser/releases/latest" },
+    @{ Name="prefetch-parser";        Desc="Parses Windows prefetch files";                Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/prefetch-parser/releases/latest" },
+    @{ Name="ActivitiesCache";        Desc="Parses ActivitiesCache execution history";     Category="Spokwn";     Type="GitHub"; URL="https://github.com/spokwn/ActivitiesCache-execution/releases/latest" },
+    @{ Name="MeowDoomsdayFucker";     Desc="Detects Doomsday cheat artefacts";             Category="Tonynoh";    Type="GitHub"; URL="https://github.com/MeowTonynoh/MeowDoomsdayFucker/releases/latest" },
+    @{ Name="MeowModAnalyzer";        Desc="Analyzes mod files for suspicious content";    Category="Tonynoh";
