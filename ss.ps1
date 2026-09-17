@@ -132,7 +132,7 @@ $canvasPanel.Add_Paint({
     $g = $e.Graphics
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     
-    $particleColor = [System.Drawing.Color]::FromArgb(90, 168, 85, 247)
+    $particleColor = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
     $brush = New-Object System.Drawing.SolidBrush($particleColor)
 
     foreach ($p in $particles) {
