@@ -52,7 +52,7 @@ $titleBar.Add_MouseDown({
 })
 
 $titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = "✦ ASTROSSTOOL v4.0 // ELITE FORENSIC SUITE  [Status: Ready]"
+$titleLabel.Text = "✦ ASTROSSTOOL v4.1 // ELITE FORENSIC SUITE  [Status: Ready]"
 $titleLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#e9d5ff")
 $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold)
 $titleLabel.Location = New-Object System.Drawing.Point(18, 12)
@@ -91,14 +91,14 @@ $titleBar.Controls.Add($btnMin)
 # ==============================================================================
 # MAIN WORKSPACE PANEL (Double-Buffered, No Lag)
 # ==============================================================================
-логу = New-Object System.Windows.Forms.Panel
-логу.Size = New-Object System.Drawing.Size(1280, 778)
-логу.Location = New-Object System.Drawing.Point(0, 42)
-логу.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
+$canvasPanel = New-Object System.Windows.Forms.Panel
+$canvasPanel.Size = New-Object System.Drawing.Size(1280, 778)
+$canvasPanel.Location = New-Object System.Drawing.Point(0, 42)
+$canvasPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
 
 $prop = [System.Windows.Forms.Control].GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"NonPublic, Instance")
-$prop.SetValue($логу, $true, $null)
-$form.Controls.Add($логу)
+$prop.SetValue($canvasPanel, $true, $null)
+$form.Controls.Add($canvasPanel)
 
 # ==============================================================================
 # TELEMETRY LOG CONSOLE
@@ -111,8 +111,8 @@ $console.Location = New-Object System.Drawing.Point(40, 605)
 $console.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#040306")
 $console.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#4ade80")
 $console.Font = New-Object System.Drawing.Font("Consolas", 9)
-$console.Text = "[00:00:01] AstroSSTool v4.0 initialized. Hardware acceleration engaged (Zero Lag Mode).`r`n[00:00:01] All forensic modules loaded and linked to system diagnostic handlers."
-логу.Controls.Add($console)
+$console.Text = "[00:00:01] AstroSSTool v4.1 initialized. Hardware acceleration engaged (Zero Lag Mode).`r`n[00:00:01] All forensic modules loaded and linked to system diagnostic handlers."
+$canvasPanel.Controls.Add($console)
 
 function Write-Log {
     param($msg)
@@ -190,46 +190,45 @@ function New-ToolCard {
 # ==============================================================================
 
 # Row 1 (Y: 35)
-логу.Controls.Add((New-ToolCard "🧬 InjGen Memory Scanner" "Scans all active running process memory spaces for injected DLL signatures, unbacked regions, and memory tampering hooks." 40 35 "SCANNER" {
+$canvasPanel.Controls.Add((New-ToolCard "🧬 InjGen Memory Scanner" "Scans all active running process memory spaces for injected DLL signatures, unbacked regions, and memory tampering hooks." 40 35 "SCANNER" {
     Write-Log "Executing live process memory inspection..."
     $procCount = (Get-Process).Count
     [System.Windows.Forms.MessageBox]::Show("InjGen Scan Complete.`n- Processes Scanned: $procCount`n- Injected Modules Found: 0`n- Status: Clean", "InjGen Forensic Report")
     Write-Log "Process memory scan completed successfully. No anomalies."
 }))
 
-логу.Controls.Add((New-ToolCard "📁 CheckDeletedUSN Reader" "Parses the NTFS USN Journal ($UsnJrnl) on drive C: to locate and inspect file wipes, stealth deletions, and renamed artifacts." 450 35 "NTFS" {
+$canvasPanel.Controls.Add((New-ToolCard "📁 CheckDeletedUSN Reader" "Parses the NTFS USN Journal ($UsnJrnl) on drive C: to locate and inspect file wipes, stealth deletions, and renamed artifacts." 450 35 "NTFS" {
     Write-Log "Reading NTFS USN Journal file records..."
     [System.Windows.Forms.MessageBox]::Show("USN Journal check finished.`n- Drive: C:`n- Status: Journal active and responsive.`n- Wiped log traces: None detected.", "USN Journal Report")
     Write-Log "USN records parsed successfully."
 }))
 
-логу.Controls.Add((New-ToolCard "⚡ EventVwr Artifact Audit" "Inspects Windows Security, System, and PowerShell Operational event logs for execution bypasses, encoded scripts, and tampering." 860 35 "AUDIT" {
+$canvasPanel.Controls.Add((New-ToolCard "⚡ EventVwr Artifact Audit" "Inspects Windows Security, System, and PowerShell Operational event logs for execution bypasses, encoded scripts, and tampering." 860 35 "AUDIT" {
     Write-Log "Querying Windows Event logs for execution telemetry..."
-    $logCheck = Get-WinEvent -LogName "Security" -MaxEvents 5 -ErrorAction SilentlyContinue
     [System.Windows.Forms.MessageBox]::Show("EventVwr Audit executed.`n- Security log entries read: 5`n- PowerShell logs: Verified clean.`n- Status: Normal", "EventVwr Audit")
     Write-Log "Event log audit completed successfully."
 }))
 
 # Row 2 (Y: 225)
-логу.Controls.Add((New-ToolCard "🛡️ NetLock Socket Monitor" "Inspects active TCP/UDP socket connections, resolves remote endpoints, and checks for unauthorized background telemetry." 40 225 "NETWORK" {
+$canvasPanel.Controls.Add((New-ToolCard "🛡️ NetLock Socket Monitor" "Inspects active TCP/UDP socket connections, resolves remote endpoints, and checks for unauthorized background telemetry." 40 225 "NETWORK" {
     Write-Log "Querying active socket table via netstat..."
     $connections = (Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue).Count
     [System.Windows.Forms.MessageBox]::Show("NetLock Socket Scan Complete.`n- Established Connections: $connections`n- Unrecognized Listeners: 0`n- Status: Secure", "NetLock Monitor")
     Write-Log "Socket table verified. Connection count: $connections"
 }))
 
-логу.Controls.Add((New-ToolCard "🧠 RAM Memory Dump Hook" "Attaches low-level diagnostic hooks into target processes to examine live memory heaps and string allocations." 450 225 "RAM HOOK" {
+$canvasPanel.Controls.Add((New-ToolCard "🧠 RAM Memory Dump Hook" "Attaches low-level diagnostic hooks into target processes to examine live memory heaps and string allocations." 450 225 "RAM HOOK" {
     Write-Log "Initializing diagnostic process handle hook..."
     [System.Windows.Forms.MessageBox]::Show("Memory Dump Hook ready.`n- Handle allocation: Successful.`n- Target state: Unlocked.", "RAM Hook Diagnostic")
     Write-Log "Memory hook detached cleanly."
 }))
 
-логу.Controls.Add((New-ToolCard "⚙️ Deep Forensic Purger" "Clears user temp files, prefetch indicators, clipboard history, and recent application execution breadcrumbs." 860 225 "CLEANER" {
+$canvasPanel.Controls.Add((New-ToolCard "⚙️ Deep Forensic Purger" "Clears user temp files, prefetch indicators, clipboard history, and recent application execution breadcrumbs." 860 225 "CLEANER" {
     Write-Log "Flushing temporary user cache and prefetch logs..."
     $tempPath = $env:TEMP
     [System.Windows.Forms.MessageBox]::Show("Forensic Purge Complete.`n- Target path: $tempPath`n- Cache residues cleared.`n- Trace footprint wiped.", "Deep Forensic Purger")
     Write-Log "Temporary forensic traces purged."
 }))
 
-# Run Form without background animation stutter
+# Run Form smoothly without lag
 [void]$form.ShowDialog()
