@@ -131,7 +131,7 @@ $canvasPanel.Add_Paint({
     param($sender, $e)
     $g = $e.Graphics
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color.FromArgb(90, 168, 85, 247)])
+   $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(90, 168, 85, 247))
 
     foreach ($p in $particles) {
         $p.X += $p.VX
