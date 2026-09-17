@@ -23,7 +23,7 @@ public class Win32 {
 }
 
 # ==============================================================================
-# MAIN FORM SETUP
+# MAIN FORM SETUP (Zero Lag, Instant Response)
 # ==============================================================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "AstroSSTool // Elite Forensic Suite"
@@ -52,7 +52,7 @@ $titleBar.Add_MouseDown({
 })
 
 $titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = "✦ ASTROSSTOOL v4.3 // ELITE FORENSIC SUITE  [60 FPS Particles Active]"
+$titleLabel.Text = "✦ ASTROSSTOOL v4.4 // ELITE FORENSIC SUITE  [Zero Lag Mode]"
 $titleLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#e9d5ff")
 $titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold)
 $titleLabel.Location = New-Object System.Drawing.Point(18, 12)
@@ -89,7 +89,7 @@ $btnMin.Add_MouseLeave({ $btnMin.ForeColor = [System.Drawing.Color]::FromArgb(15
 $titleBar.Controls.Add($btnMin)
 
 # ==============================================================================
-# CANVAS & 60 FPS PARTICLE ENGINE
+# MAIN WORKSPACE PANEL (Double-Buffered for Instant Rendering)
 # ==============================================================================
 $canvasPanel = New-Object System.Windows.Forms.Panel
 $canvasPanel.Size = New-Object System.Drawing.Size(1280, 778)
@@ -99,41 +99,6 @@ $canvasPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
 $prop = [System.Windows.Forms.Control].GetProperty("DoubleBuffered", [System.Reflection.BindingFlags]"NonPublic, Instance")
 $prop.SetValue($canvasPanel, $true, $null)
 $form.Controls.Add($canvasPanel)
-
-$rand = New-Object System.Random
-$particles = @()
-for ($i = 0; $i -lt 40; $i++) {
-    $particles += [PSCustomObject]@{
-        X = $rand.Next(0, 1280)
-        Y = $rand.Next(0, 778)
-        Vx = ($rand.NextDouble() - 0.5) * 1.0
-        Vy = -($rand.NextDouble() * 1.2 + 0.4)
-        Alpha = $rand.Next(60, 160)
-    }
-}
-
-$canvasPanel.Add_Paint({
-    param($sender, $e)
-    $g = $e.Graphics
-    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    foreach ($p in $particles) {
-        $brush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb($p.Alpha, 168, 85, 247))
-        $g.FillEllipse($brush, [float]$p.X, [float]$p.Y, 3, 3)
-        $brush.Dispose()
-    }
-})
-
-$particleTimer = New-Object System.Windows.Forms.Timer
-$particleTimer.Interval = 16 # ~60 FPS
-$particleTimer.Add_Tick({
-    foreach ($p in $particles) {
-        $p.X += $p.Vx
-        $p.Y += $p.Vy
-        if ($p.Y -lt 0) { $p.Y = 778; $p.X = $rand.Next(0, 1280) }
-    }
-    $canvasPanel.Invalidate()
-})
-$particleTimer.Start()
 
 # ==============================================================================
 # TELEMETRY LOG CONSOLE
@@ -146,7 +111,7 @@ $console.Location = New-Object System.Drawing.Point(40, 605)
 $console.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#040306")
 $console.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#4ade80")
 $console.Font = New-Object System.Drawing.Font("Consolas", 9)
-$console.Text = "[00:00:01] AstroSSTool v4.3 initialized. 60 FPS Particles Active.`r`n[00:00:01] Forensic handlers linked successfully."
+$console.Text = "[00:00:01] AstroSSTool v4.4 initialized. Zero lag layout active.`r`n[00:00:01] Forensic detection handlers linked."
 $canvasPanel.Controls.Add($console)
 
 function Write-Log {
@@ -158,7 +123,7 @@ function Write-Log {
 }
 
 # ==============================================================================
-# CARD BUILDER (Fixed button text binding)
+# CARD BUILDER (Clean descriptions & Working execution buttons)
 # ==============================================================================
 function New-ToolCard {
     param($title, $desc, $x, $y, $badgeText, $actionText, $actionScript)
@@ -166,7 +131,7 @@ function New-ToolCard {
     $card = New-Object System.Windows.Forms.Panel
     $card.Size = New-Object System.Drawing.Size(380, 175)
     $card.Location = New-Object System.Drawing.Point($x, $y)
-    $card.BackColor = [System.Drawing.Color]::FromArgb(235, 13, 11, 19)
+    $card.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#130b1b")
 
     $borderPanel = New-Object System.Windows.Forms.Panel
     $borderPanel.Size = New-Object System.Drawing.Size(380, 2)
