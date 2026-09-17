@@ -29,13 +29,13 @@ $ToolDir = "$env:TEMP\AstroSSTool_Bin"
 if (!(Test-Path $ToolDir)) { New-Item -ItemType Directory -Force -Path $ToolDir | Out-Null }
 
 # ==============================================================================
-# COLOR PALETTE (Elite Cyber-Violet Theme)
+# COLOR PALETTE (Elite Cyber-Violet Theme - Fully Purged of Color.FromArgb)
 # ==============================================================================
-$cBg        = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
-$cTitleBar  = [System.Drawing.ColorTranslator]::FromHtml("#0b0a10")
-$cTextMain  = [System.Drawing.ColorTranslator]::FromHtml("#e9d5ff")
-$cPurple    = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
-$cCardBg    = [System.Drawing.Color]::FromArgb(230, 14, 12, 22)
+$cBg         = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
+$cTitleBar   = [System.Drawing.ColorTranslator]::FromHtml("#0b0a10")
+$cTextMain   = [System.Drawing.ColorTranslator]::FromHtml("#e9d5ff")
+$cPurple     = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
+$cCardBg     = [System.Drawing.ColorTranslator]::FromHtml("#0e0c16")
 $cCardBorder = [System.Drawing.ColorTranslator]::FromHtml("#2e1065")
 
 # ==============================================================================
@@ -81,13 +81,13 @@ $btnClose.Text = "✕"
 $btnClose.Size = New-Object System.Drawing.Size(45, 42)
 $btnClose.Location = New-Object System.Drawing.Point(1155, 0)
 $btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$btnClose.ForeColor = [System.Drawing.Color]::FromArgb(156, 163, 175)
+$btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af")
 $btnClose.FlatAppearance.BorderSize = 0
 $btnClose.BackColor = [System.Drawing.Color]::Transparent
 $btnClose.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnClose.Add_Click({ $form.Close() })
-$btnClose.Add_MouseEnter({ $btnClose.ForeColor = [System.Drawing.Color]::White; $btnClose.BackColor = [System.Drawing.Color]::FromArgb(220, 38, 38) })
-$btnClose.Add_MouseLeave({ $btnClose.ForeColor = [System.Drawing.Color]::FromArgb(156, 163, 175); $btnClose.BackColor = [System.Drawing.Color]::Transparent })
+$btnClose.Add_MouseEnter({ $btnClose.ForeColor = [System.Drawing.Color]::White; $btnClose.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#dc2626") })
+$btnClose.Add_MouseLeave({ $btnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af"); $btnClose.BackColor = [System.Drawing.Color]::Transparent })
 $titleBar.Controls.Add($btnClose)
 
 $btnMin = New-Object System.Windows.Forms.Button
@@ -95,13 +95,13 @@ $btnMin.Text = "🗕"
 $btnMin.Size = New-Object System.Drawing.Size(45, 42)
 $btnMin.Location = New-Object System.Drawing.Point(1110, 0)
 $btnMin.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$btnMin.ForeColor = [System.Drawing.Color]::FromArgb(156, 163, 175)
+$btnMin.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af")
 $btnMin.FlatAppearance.BorderSize = 0
 $btnMin.BackColor = [System.Drawing.Color]::Transparent
 $btnMin.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnMin.Add_Click({ $form.WindowState = [System.Windows.Forms.FormWindowState]::Minimized })
-$btnMin.Add_MouseEnter({ $btnMin.ForeColor = [System.Drawing.Color]::White; $btnMin.BackColor = [System.Drawing.Color]::FromArgb(45, 27, 105) })
-$btnMin.Add_MouseLeave({ $btnMin.ForeColor = [System.Drawing.Color]::FromArgb(156, 163, 175); $btnMin.BackColor = [System.Drawing.Color]::Transparent })
+$btnMin.Add_MouseEnter({ $btnMin.ForeColor = [System.Drawing.Color]::White; $btnMin.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#2d1b69") })
+$btnMin.Add_MouseLeave({ $btnMin.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af"); $btnMin.BackColor = [System.Drawing.Color]::Transparent })
 $titleBar.Controls.Add($btnMin)
 
 # ==============================================================================
