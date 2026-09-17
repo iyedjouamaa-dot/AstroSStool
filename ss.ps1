@@ -5,20 +5,15 @@ Add-Type -AssemblyName System.Xaml
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class User32 {
-    [DllImport("user32.dll")]
-    public static extern IntPtr SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
-}
-"@
-
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $installDir = "$env:USERPROFILE\Downloads\AstroSSTool"
 
-# INTEGRATED TOOL DATA (AstroSSTool + Cheesy's Tools Merged safely)
+# Ensure directories exist before proceeding
+if (!(Test-Path $installDir)) {
+    New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+}
+
 $ToolData = @(
     @{ Name="PrefetchView";       Desc="Parses prefetch, extracts file info";          Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/PrefetchView/releases/latest" },
     @{ Name="BAMReveal";              Desc="Parses BAM forensic artefact";                 Category="Orbdiff";    Type="GitHub"; URL="https://github.com/Orbdiff/BAMReveal/releases/latest" },
@@ -97,3 +92,55 @@ $ToolData = @(
     @{ Name="NET 10.0";               Desc="Microsoft .NET 10 runtime";                    Category="Dependencies"; Type="Web"; URL="https://download.visualstudio.microsoft.com/download/pr/b3f93f0e-9e5e-4b4c-a4c4-36db0c4b0e3e/dotnet-runtime-10.0.0-win-x64.exe" },
     @{ Name="VSRedist";               Desc="Visual C++ redistributable (x64)";             Category="Dependencies"; Type="Web"; URL="https://aka.ms/vs/17/release/vc_redist.x64.exe" }
 )
+
+[xml]$xaml = @"
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="AstroSSTool"
+    Width="1200" Height="760"
+    MinWidth="1200" MinHeight="760"
+    WindowStartupLocation="CenterScreen"
+    ResizeMode="NoResize"
+    WindowStyle="None"
+    AllowsTransparency="True"
+    Background="Transparent"
+    FontFamily="Segoe UI">
+    <Grid>
+        <Border Background="#0B0914" BorderBrush="#3C2A6B" BorderThickness="1" CornerRadius="8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="42"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Background="#141026" CornerRadius="8,8,0,0">
+                    <Grid Margin="16,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="[★]" FontSize="14" FontWeight="Bold" Foreground="#9D4EDD" FontFamily="Consolas"/>
+                            <TextBlock Text="   AstroSSTool" FontSize="14" FontWeight="SemiBold" Foreground="#E0AAFF"/>
+                        </StackPanel>
+                        <Button x:Name="CloseBtn" HorizontalAlignment="Right" Width="40" Height="36" Content="X" Background="Transparent" Foreground="#7B68AE" Cursor="Hand"/>
+                    </Grid>
+                </Border>
+                <Grid Grid.Row="1" Margin="16">
+                    <TextBlock Text="AstroSSTool Loaded Successfully. Select tools from tabs below." Foreground="#E0AAFF" FontSize="14"/>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
+"@
+
+$reader = (New-Object System.Xml.XmlNodeReader $xaml)
+$window = [Windows.Markup.XamlReader]::Load($reader)
+
+$closeBtn = $window.FindName("CloseBtn")
+if ($closeBtn) {
+    $closeBtn.Add_Click({ $window.Close() })
+}
+
+$window.Add_MouseLeftButtonDown({
+    try { $window.DragMove() } catch {}
+})
+
+[void]$window.ShowDialog()
