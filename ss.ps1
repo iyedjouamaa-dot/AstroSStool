@@ -143,4 +143,8 @@ $window.Add_MouseLeftButtonDown({
     try { $window.DragMove() } catch {}
 })
 
-[void]$window.ShowDialog()
+# Keeps the WPF UI thread alive during remote iex execution
+if ([System.Windows.Application]::Current -eq $null) {
+    [void](New-Object System.Windows.Application)
+}
+[System.Windows.Application]::Current.Run($window)
