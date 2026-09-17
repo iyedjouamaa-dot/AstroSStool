@@ -1,10 +1,8 @@
+$code = @'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Runtime.InteropServices
 
-# ==============================================================================
-# WIN32 API FOR ROUNDED CORNERS & SEAMLESS DRAGGING
-# ==============================================================================
 if (-not ([System.Management.Automation.PSTypeName]'Win32').Type) {
     Add-Type -TypeDefinition @"
 using System;
@@ -22,15 +20,9 @@ public class Win32 {
 "@
 }
 
-# ==============================================================================
-# ENVIRONMENT & STORAGE SETUP
-# ==============================================================================
 $ToolDir = "$env:TEMP\AstroSSTool_Bin"
 if (!(Test-Path $ToolDir)) { New-Item -ItemType Directory -Force -Path $ToolDir | Out-Null }
 
-# ==============================================================================
-# COLOR PALETTE (Elite Cyber-Violet Theme - Fully Purged of Color.FromArgb)
-# ==============================================================================
 $cBg         = [System.Drawing.ColorTranslator]::FromHtml("#07060a")
 $cTitleBar   = [System.Drawing.ColorTranslator]::FromHtml("#0b0a10")
 $cTextMain   = [System.Drawing.ColorTranslator]::FromHtml("#e9d5ff")
@@ -38,9 +30,6 @@ $cPurple     = [System.Drawing.ColorTranslator]::FromHtml("#a855f7")
 $cCardBg     = [System.Drawing.ColorTranslator]::FromHtml("#0e0c16")
 $cCardBorder = [System.Drawing.ColorTranslator]::FromHtml("#2e1065")
 
-# ==============================================================================
-# MAIN FORM SETUP (Double-Buffered for Zero Flickering)
-# ==============================================================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "AstroSSTool // Advanced Forensic Suite"
 $form.Size = New-Object System.Drawing.Size(1200, 780)
@@ -54,7 +43,6 @@ $form.Add_Shown({
     [Win32]::SetWindowRgn($form.Handle, $rgn, $true)
 })
 
-# Custom Draggable Titlebar
 $titleBar = New-Object System.Windows.Forms.Panel
 $titleBar.Size = New-Object System.Drawing.Size(1200, 42)
 $titleBar.BackColor = $cTitleBar
@@ -75,7 +63,6 @@ $titleLabel.Location = New-Object System.Drawing.Point(18, 12)
 $titleLabel.AutoSize = $true
 $titleBar.Controls.Add($titleLabel)
 
-# Window Control Buttons (Close / Minimize)
 $btnClose = New-Object System.Windows.Forms.Button
 $btnClose.Text = "✕"
 $btnClose.Size = New-Object System.Drawing.Size(45, 42)
@@ -104,9 +91,6 @@ $btnMin.Add_MouseEnter({ $btnMin.ForeColor = [System.Drawing.Color]::White; $btn
 $btnMin.Add_MouseLeave({ $btnMin.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#9ca3af"); $btnMin.BackColor = [System.Drawing.Color]::Transparent })
 $titleBar.Controls.Add($btnMin)
 
-# ==============================================================================
-# CANVAS PANEL & DYNAMIC 60 FPS PARTICLES
-# ==============================================================================
 $canvasPanel = New-Object System.Windows.Forms.Panel
 $canvasPanel.Size = New-Object System.Drawing.Size(1200, 738)
 $canvasPanel.Location = New-Object System.Drawing.Point(0, 42)
@@ -147,9 +131,6 @@ $canvasPanel.Add_Paint({
     $brush.Dispose()
 })
 
-# ==============================================================================
-# CONSOLE LOGGING HELPER
-# ==============================================================================
 $console = New-Object System.Windows.Forms.TextBox
 $console.Multiline = $true
 $console.ReadOnly = $true
@@ -169,9 +150,6 @@ function Write-Log {
     $console.ScrollToCaret()
 }
 
-# ==============================================================================
-# ADVANCED TOOL CARD BUILDER
-# ==============================================================================
 function New-ToolCard {
     param($title, $desc, $x, $y, $badgeText, $actionText, $scriptBlock)
     
@@ -180,7 +158,6 @@ function New-ToolCard {
     $card.Location = New-Object System.Drawing.Point($x, $y)
     $card.BackColor = $cCardBg
 
-    # Inner Accent Border line
     $borderPanel = New-Object System.Windows.Forms.Panel
     $borderPanel.Size = New-Object System.Drawing.Size(364, 2)
     $borderPanel.Location = New-Object System.Drawing.Point(0, 0)
@@ -195,7 +172,6 @@ function New-ToolCard {
     $lbl.AutoSize = $true
     $card.Controls.Add($lbl)
 
-    # Badge label
     $badge = New-Object System.Windows.Forms.Label
     $badge.Text = $badgeText
     $badge.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#c084fc")
@@ -232,11 +208,6 @@ function New-ToolCard {
     return $card
 }
 
-# ==============================================================================
-# MOUNTING THE FORENSIC SUITE MODULE CARDS
-# ==============================================================================
-
-# Row 1 (Y: 30)
 $canvasPanel.Controls.Add((New-ToolCard "🧬 InjGen Memory Scanner" "Performs deep heuristic scanning across active process handles for hidden DLL injections." 30 30 "ACTIVE SCAN" {
     Write-Log "Initiated InjGen heuristic scan on active system memory..."
     [System.Windows.Forms.MessageBox]::Show("InjGen Scan Complete.`n- Inspected active processes: 142`n- Signature Anomalies: None", "AstroSSTool - InjGen")
@@ -255,7 +226,6 @@ $canvasPanel.Controls.Add((New-ToolCard "⚡ EventVwr Artifact Audit" "Audits Wi
     Write-Log "Event log audit completed successfully."
 }))
 
-# Row 2 (Y: 210)
 $canvasPanel.Controls.Add((New-ToolCard "🛡️ NetLock Socket Monitor" "Inspects active network sockets, endpoints, and established telemetry streams." 30 210 "CHECK SOCKETS" {
     Write-Log "Querying active TCP/UDP network connections..."
     [System.Windows.Forms.MessageBox]::Show("NetLock active socket analysis complete.`n- Active Connections: 18`n- Suspicious Endpoints: 0", "AstroSSTool - NetLock")
@@ -274,9 +244,6 @@ $canvasPanel.Controls.Add((New-ToolCard "⚙️ Deep Forensic Purger" "Flushes r
     Write-Log "System cache successfully purged."
 }))
 
-# ==============================================================================
-# ANIMATION LOOP & EXECUTION
-# ==============================================================================
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 16
 $timer.Add_Tick({ $canvasPanel.Invalidate() })
@@ -284,10 +251,13 @@ $timer.Start()
 
 $form.Add_FormClosed({ $timer.Stop() })
 
-# Global exception trap to avoid silent crashes
 try {
     [void]$form.ShowDialog()
 }
 catch {
     [System.Windows.Forms.MessageBox]::Show("An error occurred during execution:`n$_", "AstroSSTool Fatal Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
 }
+'@
+
+$code | Set-Content -Path "$PSScriptRoot\ss.ps1" -Force
+& "$PSScriptRoot\ss.ps1"
