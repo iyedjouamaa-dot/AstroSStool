@@ -16,6 +16,36 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # ---------------------------------------------------------------------------
+# Background music (optional). Plays a looping .wav file if one is found next
+# to this script. WAV is used because System.Media.SoundPlayer (built into
+# .NET Framework, no extra downloads needed) only supports .wav natively.
+# To enable: place a file named "theme.wav" in the same folder as this
+# script, or change $MusicFile below to point at your own .wav file.
+# ---------------------------------------------------------------------------
+$MusicFile = Join-Path $PSScriptRoot "theme.wav"
+$script:MusicPlayer = $null
+
+function Start-BackgroundMusic {
+    param([string]$Path)
+    if (Test-Path $Path) {
+        try {
+            $script:MusicPlayer = New-Object System.Media.SoundPlayer($Path)
+            $script:MusicPlayer.PlayLooping()
+            return $true
+        } catch {
+            return $false
+        }
+    }
+    return $false
+}
+
+function Stop-BackgroundMusic {
+    if ($script:MusicPlayer) {
+        try { $script:MusicPlayer.Stop() } catch {}
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Win32 interop: rounded corners + borderless window dragging
 # ---------------------------------------------------------------------------
 Add-Type @"
@@ -541,9 +571,18 @@ $gridPanel.Controls.Add($notesCard)
 Write-Log "AstroSSTool ready. All modules are read-only: nothing is modified, injected, or deleted."
 Write-Log "Source is fully visible in this script - review any module before running it."
 
+if (Start-BackgroundMusic -Path $MusicFile) {
+    Write-Log "Background music playing from theme.wav"
+} else {
+    Write-Log "No theme.wav found next to the script - running without music." "Warn"
+}
+
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
 [System.Windows.Forms.Application]::EnableVisualStyles()
-$form.Add_FormClosed({ $particleTimer.Stop(); $particleTimer.Dispose() })
+$form.Add_FormClosed({
+    $particleTimer.Stop(); $particleTimer.Dispose()
+    Stop-BackgroundMusic
+})
 [void]$form.ShowDialog()
