@@ -566,6 +566,173 @@ $notesCard.Controls.Add($exportBtn)
 $gridPanel.Controls.Add($notesCard)
 
 # ---------------------------------------------------------------------------
+# Consent / intro screen - shown before the dashboard is accessible.
+# Explains, in plain language, what this tool actually does and does not do.
+# ---------------------------------------------------------------------------
+$introTop = $titleBar.Height
+$introPanel = New-Object System.Windows.Forms.Panel
+$introPanel.Location = New-Object System.Drawing.Point(0, $introTop)
+$introPanel.Size = New-Object System.Drawing.Size($form.Width, ($form.Height - $introTop))
+$introPanel.BackColor = $ColorBackground
+
+$script:IntroParticles = @()
+$introRand = New-Object System.Random
+for ($i = 0; $i -lt 55; $i++) {
+    $script:IntroParticles += [PSCustomObject]@{
+        X  = $introRand.Next(0, $introPanel.Width)
+        Y  = $introRand.Next(0, $introPanel.Height)
+        VX = (($introRand.Next(-8, 8)) / 10.0)
+        VY = (($introRand.Next(-8, 8)) / 10.0)
+        R  = $introRand.Next(1, 3)
+    }
+}
+
+$introPanel.Add_Paint({
+    param($s, $e)
+    $g = $e.Graphics
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $brush = New-Object System.Drawing.SolidBrush($ColorAccent)
+    foreach ($p in $script:IntroParticles) {
+        $g.FillEllipse($brush, [float]$p.X, [float]$p.Y, [float]($p.R * 2), [float]($p.R * 2))
+    }
+    $brush.Dispose()
+})
+
+$introTimer = New-Object System.Windows.Forms.Timer
+$introTimer.Interval = 16
+$introTimer.Add_Tick({
+    if ($introPanel.Visible) {
+        foreach ($p in $script:IntroParticles) {
+            $p.X += $p.VX
+            $p.Y += $p.VY
+            if ($p.X -le 0 -or $p.X -ge $introPanel.Width)  { $p.VX = -$p.VX }
+            if ($p.Y -le 0 -or $p.Y -ge $introPanel.Height) { $p.VY = -$p.VY }
+        }
+        $introPanel.Invalidate()
+    }
+})
+$introTimer.Start()
+
+# Centered consent card
+$cardW = 620
+$cardH = 480
+$introCard = New-Object System.Windows.Forms.Panel
+$introCard.Size = New-Object System.Drawing.Size($cardW, $cardH)
+$introCard.Location = New-Object System.Drawing.Point((($introPanel.Width - $cardW) / 2), (($introPanel.Height - $cardH) / 2))
+$introCard.BackColor = $ColorCard
+$introCard.Add_Paint({
+    param($s, $e)
+    $pen = New-Object System.Drawing.Pen($ColorAccentDim, 1)
+    $e.Graphics.DrawRectangle($pen, 0, 0, ($introCard.Width - 1), ($introCard.Height - 1))
+    $pen.Dispose()
+})
+
+$introIcon = New-Object System.Windows.Forms.Label
+$introIcon.Text = "🛡️"
+$introIcon.Font = New-Object System.Drawing.Font("Segoe UI", 26)
+$introIcon.AutoSize = $true
+$introIcon.BackColor = [System.Drawing.Color]::Transparent
+$introIcon.Location = New-Object System.Drawing.Point(30, 28)
+$introCard.Controls.Add($introIcon)
+
+$introTitle = New-Object System.Windows.Forms.Label
+$introTitle.Text = "Before You Continue"
+$introTitle.Font = New-Object System.Drawing.Font("Segoe UI", 17, [System.Drawing.FontStyle]::Bold)
+$introTitle.ForeColor = $ColorText
+$introTitle.AutoSize = $true
+$introTitle.BackColor = [System.Drawing.Color]::Transparent
+$introTitle.Location = New-Object System.Drawing.Point(84, 24)
+$introCard.Controls.Add($introTitle)
+
+$introSub = New-Object System.Windows.Forms.Label
+$introSub.Text = "AstroSSTool — please read this before using the tool"
+$introSub.Font = $FontSub
+$introSub.ForeColor = $ColorSubText
+$introSub.AutoSize = $true
+$introSub.BackColor = [System.Drawing.Color]::Transparent
+$introSub.Location = New-Object System.Drawing.Point(84, 54)
+$introCard.Controls.Add($introSub)
+
+$introBody = New-Object System.Windows.Forms.Label
+$introBody.Text =
+"This tool only reads information that is already visible through built-in Windows utilities, such as Task Manager, Event Viewer, and Resource Monitor.
+
+It does not inject code into, or attach to, any other running program. It does not modify, delete, or clear any files, logs, caches, or prefetch data. It does not require administrator rights to view its results.
+
+Every module's source code is contained in this single script. You are welcome to open it in a text editor and read exactly what each button does, before or during use.
+
+By continuing, you confirm you understand what this tool does and does not do."
+$introBody.Font = $FontDesc
+$introBody.ForeColor = $ColorText
+$introBody.Size = New-Object System.Drawing.Size(($cardW - 60), 260)
+$introBody.Location = New-Object System.Drawing.Point(30, 96)
+$introCard.Controls.Add($introBody)
+
+$introCheck = New-Object System.Windows.Forms.CheckBox
+$introCheck.Text = "  I have read the above and understand what this tool does"
+$introCheck.Font = $FontDesc
+$introCheck.ForeColor = $ColorSubText
+$introCheck.AutoSize = $true
+$introCheck.Location = New-Object System.Drawing.Point(30, 366)
+$introCard.Controls.Add($introCheck)
+
+$introCancelBtn = New-Object System.Windows.Forms.Button
+$introCancelBtn.Text = "Cancel"
+$introCancelBtn.Font = $FontBtn
+$introCancelBtn.ForeColor = $ColorSubText
+$introCancelBtn.BackColor = $ColorBadgeBg
+$introCancelBtn.FlatStyle = "Flat"
+$introCancelBtn.FlatAppearance.BorderColor = $ColorCardBorder
+$introCancelBtn.FlatAppearance.BorderSize = 1
+$introCancelBtn.Size = New-Object System.Drawing.Size(180, 38)
+$introCancelBtn.Location = New-Object System.Drawing.Point(30, 410)
+$introCancelBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+$introCancelBtn.Add_Click({ $form.Close() })
+$introCard.Controls.Add($introCancelBtn)
+
+$introContinueBtn = New-Object System.Windows.Forms.Button
+$introContinueBtn.Text = "I Understand — Continue"
+$introContinueBtn.Font = $FontBtn
+$introContinueBtn.ForeColor = $ColorText
+$introContinueBtn.BackColor = $ColorCardBorder
+$introContinueBtn.FlatStyle = "Flat"
+$introContinueBtn.FlatAppearance.BorderSize = 0
+$introContinueBtn.Size = New-Object System.Drawing.Size(230, 38)
+$introContinueBtn.Location = New-Object System.Drawing.Point(($cardW - 260), 410)
+$introContinueBtn.Enabled = $false
+$introContinueBtn.Cursor = [System.Windows.Forms.Cursors]::No
+$introCard.Controls.Add($introContinueBtn)
+
+$introCheck.Add_CheckedChanged({
+    if ($introCheck.Checked) {
+        $introContinueBtn.Enabled = $true
+        $introContinueBtn.BackColor = $ColorAccentDim
+        $introContinueBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    } else {
+        $introContinueBtn.Enabled = $false
+        $introContinueBtn.BackColor = $ColorCardBorder
+        $introContinueBtn.Cursor = [System.Windows.Forms.Cursors]::No
+    }
+})
+
+$introContinueBtn.Add_Click({
+    $introPanel.Visible = $false
+    $heroPanel.Visible = $true
+    $gridPanel.Visible = $true
+    $consolePanel.Visible = $true
+    Write-Log "Consent acknowledged. Dashboard unlocked."
+})
+
+$introPanel.Controls.Add($introCard)
+$form.Controls.Add($introPanel)
+$introPanel.BringToFront()
+
+# Hide the dashboard until consent is given
+$heroPanel.Visible = $false
+$gridPanel.Visible = $false
+$consolePanel.Visible = $false
+
+# ---------------------------------------------------------------------------
 # Startup log message
 # ---------------------------------------------------------------------------
 Write-Log "AstroSSTool ready. All modules are read-only: nothing is modified, injected, or deleted."
@@ -583,6 +750,7 @@ if (Start-BackgroundMusic -Path $MusicFile) {
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $form.Add_FormClosed({
     $particleTimer.Stop(); $particleTimer.Dispose()
+    $introTimer.Stop(); $introTimer.Dispose()
     Stop-BackgroundMusic
 })
 [void]$form.ShowDialog()
